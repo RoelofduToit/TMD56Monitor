@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include "platform/compat.h"
 #include "sources/replay_source.h"
 
 #include <math.h>
@@ -7,7 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#if !defined(_WIN32)
 #include <unistd.h>
+#endif
 
 static int failures = 0;
 
@@ -23,27 +27,33 @@ static void expect_true(int condition, const char *file, int line, const char *t
 
 static int write_temp(char *path, size_t path_len, const char *contents)
 {
-    int fd;
+    char dir[512];
     FILE *file;
+    static unsigned seq = 0;
+    size_t n;
+    int written;
 
-    snprintf(path, path_len, "/tmp/tmd56-replay-XXXXXX");
-    fd = mkstemp(path);
-    if (fd < 0) {
+    if (tmd_temp_dir(dir, sizeof dir, "tmd56-replay") != 0) {
         return -1;
     }
-    file = fdopen(fd, "w");
+    n = strlen(dir);
+    written = snprintf(path, path_len, "%s%sreplay-%u.txt", dir,
+                       (n > 0u && (dir[n - 1u] == '/' || dir[n - 1u] == '\\')) ? "" : "/",
+                       seq++);
+    if (written < 0 || (size_t)written >= path_len) {
+        return -1;
+    }
+    file = fopen(path, "wb");
     if (file == NULL) {
-        close(fd);
-        unlink(path);
         return -1;
     }
     if (fputs(contents, file) < 0) {
         fclose(file);
-        unlink(path);
+        remove(path);
         return -1;
     }
     if (fclose(file) != 0) {
-        unlink(path);
+        remove(path);
         return -1;
     }
     return 0;
@@ -69,7 +79,7 @@ static void test_tmd_export(void)
         "oven door opened\n"
         "54\t2023/01/13\t16:04:41\tOL\t24.6\t\n"
         "55\t2023/01/13\t16:04:42\t24.0\t24.5\t\n";
-    char path[64];
+    char path[512];
     char error[128];
     ReplaySample *samples = NULL;
     size_t count = 0;
@@ -92,7 +102,7 @@ static void test_tmd_export(void)
         EXPECT(samples[3].valid);
     }
     replay_samples_free(samples);
-    unlink(path);
+    remove(path);
 }
 
 static void test_midnight_wrap(void)
@@ -101,7 +111,7 @@ static void test_midnight_wrap(void)
         "1\t2023/01/13\t23:59:58\t1.0\t2.0\n"
         "2\t2023/01/13\t23:59:59\t1.1\t2.1\n"
         "3\t2023/01/14\t00:00:01\t1.2\t2.2\n";
-    char path[64];
+    char path[512];
     char error[128];
     ReplaySample *samples = NULL;
     size_t count = 0;
@@ -116,7 +126,7 @@ static void test_midnight_wrap(void)
         EXPECT(fabs(samples[2].t1 - 1.2) < 1e-9);
     }
     replay_samples_free(samples);
-    unlink(path);
+    remove(path);
 }
 
 static void test_csv_and_simple(void)
@@ -128,7 +138,7 @@ static void test_csv_and_simple(void)
         "2026-09-24T18:30:02.000,2.500,25.0,24.0,1.0,1\n"
         "\n"
         "4.0,26.0,25.5\n";
-    char path[64];
+    char path[512];
     char error[128];
     ReplaySample *samples = NULL;
     size_t count = 0;
@@ -151,13 +161,13 @@ static void test_csv_and_simple(void)
         EXPECT(fabs(samples[3].t2 - 25.5) < 1e-9);
     }
     replay_samples_free(samples);
-    unlink(path);
+    remove(path);
 }
 
 static void test_header_only_is_rejected(void)
 {
     static const char fixture[] = "File Name:\tonly.txt\nDescription:\n";
-    char path[64];
+    char path[512];
     char error[128];
     ReplaySample *samples = NULL;
     size_t count = 99;
@@ -167,7 +177,7 @@ static void test_header_only_is_rejected(void)
     EXPECT(samples == NULL);
     EXPECT(count == 0u);
     EXPECT(error[0] != '\0');
-    unlink(path);
+    remove(path);
 }
 
 static void test_shipped_example(void)
@@ -332,7 +342,7 @@ static void test_fixtures(void)
 
 static void test_missing_columns(void)
 {
-    char path[64];
+    char path[512];
     char error[128];
     ReplaySample *samples = NULL;
     size_t count = 0;
@@ -342,14 +352,14 @@ static void test_missing_columns(void)
                       "1\t2026/01/01\t00:00:00\t1.0\n") == 0);
     EXPECT(replay_parse_path(path, &samples, &count, NULL, error, sizeof error) != 0);
     EXPECT(strstr(error, "T2") != NULL);
-    unlink(path);
+    remove(path);
 
     EXPECT(write_temp(path, sizeof path,
                       "No.\tCH01\tCH02\n"
                       "1\t1.0\t2.0\n") == 0);
     EXPECT(replay_parse_path(path, &samples, &count, NULL, error, sizeof error) != 0);
     EXPECT(strstr(error, "time") != NULL);
-    unlink(path);
+    remove(path);
 }
 
 static void sleep_ms(int ms)
@@ -367,7 +377,7 @@ static void test_playback_timing_restart_and_completion(void)
         "0.0,20.0,-1.0\n"
         "0.30,20.5,-1.5\n"
         "0.60,21.0,-2.0\n";
-    char path[64];
+    char path[512];
     ReplaySource *source;
     MeasurementSource *base;
     TemperatureMeasurement sample;
@@ -379,7 +389,7 @@ static void test_playback_timing_restart_and_completion(void)
     source = replay_source_create();
     EXPECT(source != NULL);
     if (source == NULL) {
-        unlink(path);
+        remove(path);
         return;
     }
     base = replay_source_base(source);
@@ -417,7 +427,7 @@ static void test_playback_timing_restart_and_completion(void)
     EXPECT(fabs(sample.t1 - 20.0) < 1e-9);
 
     replay_source_destroy(source);
-    unlink(path);
+    remove(path);
 }
 
 int main(void)
