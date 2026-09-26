@@ -278,7 +278,16 @@ done < <(ntldd -R "$audit_bin/ntldd.exe")
 audit() {
     local target=$1
     local out missing
-    if ! out=$(cd "$audit_bin" && PATH="$audit_bin:$prefix" ./ntldd.exe -R "$target"); then
+    # A drive path such as D:/... cannot be placed in a colon-separated PATH:
+    # the drive colon is treated as a separator. Use the Unix form and let
+    # MSYS convert it when it starts ntldd.
+    local prefix_path=$prefix
+    local audit_path=$audit_bin
+    if command -v cygpath >/dev/null 2>&1; then
+        prefix_path=$(cygpath -u "$prefix")
+        audit_path=$(cygpath -u "$audit_bin")
+    fi
+    if ! out=$(cd "$audit_path" && PATH="$audit_path:$prefix_path" ./ntldd.exe -R "$target"); then
         echo "tmd56: ntldd could not read $target" >&2
         return 1
     fi

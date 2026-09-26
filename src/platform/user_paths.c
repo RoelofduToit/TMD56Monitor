@@ -122,6 +122,18 @@ void tmd_prepare_runtime(void)
     }
     dir = g_path_get_dirname(module);
 
+    /* Pixbuf loaders live under lib/ and import DLLs that sit beside the exe.
+       Windows does not search the exe directory for those imports. */
+    SetDllDirectoryA(dir);
+    {
+        const char *old_path = g_getenv("PATH");
+        char *new_path = (old_path != NULL && old_path[0] != '\0')
+                             ? g_strjoin(";", dir, old_path, NULL)
+                             : g_strdup(dir);
+        g_setenv("PATH", new_path, TRUE);
+        g_free(new_path);
+    }
+
     /* Point GIO at the bundle before any GLib file call can scan modules. */
     gio_modules = g_build_filename(dir, "lib", "gio", "modules", NULL);
     if (win_is_dir(gio_modules)) {
