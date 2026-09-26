@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux packages
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches CMake version
+        run: |
+          version=$(sed -n 's/^project(TMD56Monitor VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          tag=${GITHUB_REF_NAME#v}
+          case "$tag" in
+            "$version"|"$version"-*) ;;
+            *) echo "tag v$tag does not match project version $version"; exit 1 ;;
+          esac
+          echo "Application version remains $version"
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config file curl ca-certificates \
+            libgtk-4-dev libcairo2-dev libserialport-dev libglib2.0-dev-bin \
+            libfuse2
+      - name: AppImage
+        run: packaging/linux/build-appimage.sh
+      - name: Debian package
+        run: |
+          cmake -S . -B build-deb -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build-deb -j
+          cpack --config build-deb/CPackConfig.cmake -G DEB -B dist
+      - name: AppImage diagnostics outside the source tree
+        run: |
+          cd /tmp
+          APPIMAGE_EXTRACT_AND_RUN=1 "$GITHUB_WORKSPACE/dist/TMD56Monitor-x86_64.AppImage" --version
+          APPIMAGE_EXTRACT_AND_RUN=1 "$GITHUB_WORKSPACE/dist/TMD56Monitor-x86_64.AppImage" --self-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: |
+            dist/TMD56Monitor-x86_64.AppImage
+            dist/TMD56Monitor_*_amd64.deb
+          if-no-files-found: error
+
+  windows:
+    name: Windows packages
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-cairo
+            mingw-w64-ucrt-x86_64-libserialport
+            mingw-w64-ucrt-x86_64-ntldd
+            mingw-w64-ucrt-x86_64-nsis
+            zip
+      - uses: actions/checkout@v4
+      - name: Check tag matches CMake version
+        run: |
+          version=$(sed -n 's/^project(TMD56Monitor VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          tag=${GITHUB_REF_NAME#v}
+          case "$tag" in
+            "$version"|"$version"-*) ;;
+            *) echo "tag v$tag does not match project version $version"; exit 1 ;;
+          esac
+          echo "Application version remains $version"
+      - name: Configure and compile
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j
+      - name: Portable directory
+        run: cmake --install build --prefix "$GITHUB_WORKSPACE/dist/TMD56Monitor"
+      - name: Self-test the bundle without MSYS2 on PATH
+        shell: cmd
+        run: |
+          set PATH=C:\Windows\System32;C:\Windows
+          "%GITHUB_WORKSPACE%\dist\TMD56Monitor\tmd56-monitor.exe" --version
+          if errorlevel 1 exit /b 1
+          "%GITHUB_WORKSPACE%\dist\TMD56Monitor\tmd56-monitor.exe" --self-test
+          if errorlevel 1 exit /b 1
+      - name: Portable zip
+        run: |
+          cd "$GITHUB_WORKSPACE/dist"
+          zip -r TMD56Monitor-Windows-x64.zip TMD56Monitor
+          tops=$(unzip -Z1 TMD56Monitor-Windows-x64.zip | cut -d/ -f1 | sort -u)
+          test "$tops" = "TMD56Monitor"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -qx "TMD56Monitor/tmd56-monitor.exe"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -qx "TMD56Monitor/LICENSE"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -qx "TMD56Monitor/THIRD_PARTY_NOTICES.md"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -q "^TMD56Monitor/share/"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -q "^TMD56Monitor/etc/"
+          if unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -E '(^|/)(build|ucrt64|msys64)/'; then
+            echo "zip contains a build or MSYS directory" >&2
+            exit 1
+          fi
+      - name: Installer
+        run: |
+          # Package only the NSIS generator. The build directory also contains
+          # test executables, so the installer is taken from its own output directory.
+          rm -rf "$GITHUB_WORKSPACE/dist/nsis"
+          cpack --config build/CPackConfig.cmake -G NSIS -B "$GITHUB_WORKSPACE/dist/nsis"
+          test -f "$GITHUB_WORKSPACE/dist/nsis/TMD56Monitor.exe"
+          cp "$GITHUB_WORKSPACE/dist/nsis/TMD56Monitor.exe" "$GITHUB_WORKSPACE/dist/TMD56Monitor-Setup-x64.exe"
+      - name: Installer payload self-test
+        shell: cmd
+        run: |
+          "%GITHUB_WORKSPACE%\dist\TMD56Monitor-Setup-x64.exe" /S /D=C:\tmd56-install-test
+          set TRIES=0
+          :waitinstall
+          if exist C:\tmd56-install-test\tmd56-monitor.exe goto installed
+          set /a TRIES+=1
+          if %TRIES% GEQ 60 exit /b 1
+          ping -n 2 127.0.0.1 >nul
+          goto waitinstall
+          :installed
+          set PATH=C:\Windows\System32;C:\Windows
+          C:\tmd56-install-test\tmd56-monitor.exe --version
+          if errorlevel 1 exit /b 1
+          C:\tmd56-install-test\tmd56-monitor.exe --self-test
+          if errorlevel 1 exit /b 1
+          if not exist "%LOCALAPPDATA%\TMD56Monitor\logs" mkdir "%LOCALAPPDATA%\TMD56Monitor\logs"
+          echo keep> "%LOCALAPPDATA%\TMD56Monitor\logs\uninstall-keep.csv"
+          C:\tmd56-install-test\Uninstall.exe /S _?=C:\tmd56-install-test
+          set TRIES=0
+          :waituninstall
+          if not exist C:\tmd56-install-test\tmd56-monitor.exe goto uninstalled
+          set /a TRIES+=1
+          if %TRIES% GEQ 60 exit /b 1
+          ping -n 2 127.0.0.1 >nul
+          goto waituninstall
+          :uninstalled
+          if not exist "%LOCALAPPDATA%\TMD56Monitor\logs\uninstall-keep.csv" exit /b 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            dist/TMD56Monitor-Windows-x64.zip
+            dist/TMD56Monitor-Setup-x64.exe
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/**
+          generate_release_notes: true
+          fail_on_unmatched_files: true

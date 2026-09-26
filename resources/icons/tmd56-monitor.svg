@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Project mark for TMD-56 Temperature Logger.
+  Not an Amprobe logo. The artwork can be replaced later.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="40" fill="#202225"/>
+  <rect width="28" height="256" fill="#D71920"/>
+  <rect x="52" y="44" width="176" height="78" rx="8" fill="#C8CBC4"/>
+  <rect x="64" y="62" width="70" height="10" rx="2" fill="#161719"/>
+  <rect x="146" y="62" width="70" height="10" rx="2" fill="#161719"/>
+  <rect x="52" y="146" width="80" height="66" rx="8" fill="#161719"/>
+  <rect x="148" y="146" width="80" height="66" rx="8" fill="#161719"/>
+  <rect x="64" y="174" width="56" height="8" rx="2" fill="#D71920"/>
+  <rect x="160" y="174" width="56" height="8" rx="2" fill="#3CB4D6"/>
+</svg>

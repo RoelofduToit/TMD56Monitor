@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/tmd56/Monitor">
+    <file>style.css</file>
+    <file>icons/tmd56-monitor.svg</file>
+    <file>icons/tmd56-monitor-128.png</file>
+  </gresource>
+</gresources>

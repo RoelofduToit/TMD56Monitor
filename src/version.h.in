@@ -1,0 +1,6 @@
+#ifndef TMD_VERSION_H
+#define TMD_VERSION_H
+
+#define TMD_VERSION_STRING "@PROJECT_VERSION@"
+
+#endif

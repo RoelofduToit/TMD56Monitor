@@ -1,0 +1,81 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    name: Linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            libgtk-4-dev libcairo2-dev libserialport-dev libglib2.0-dev-bin
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - name: Compile
+        run: cmake --build build -j
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Diagnostics
+        run: |
+          ./build/tmd56-monitor --version
+          ./build/tmd56-monitor --self-test
+          cmake --install build --prefix "$RUNNER_TEMP/tmd-stage"
+          "$RUNNER_TEMP/tmd-stage/bin/tmd56-monitor" --version
+          "$RUNNER_TEMP/tmd-stage/bin/tmd56-monitor" --self-test
+      - name: Upload test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-tmd56-monitor
+          path: build/tmd56-monitor
+          if-no-files-found: error
+
+  windows:
+    name: Windows UCRT64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-cairo
+            mingw-w64-ucrt-x86_64-libserialport
+            mingw-w64-ucrt-x86_64-ntldd
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Compile
+        run: cmake --build build -j
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Stage the DLL bundle
+        run: cmake --install build --prefix "$GITHUB_WORKSPACE/dist/TMD56Monitor"
+      - name: Self-test the bundle without MSYS2 on PATH
+        shell: cmd
+        run: |
+          set PATH=C:\Windows\System32;C:\Windows
+          "%GITHUB_WORKSPACE%\dist\TMD56Monitor\tmd56-monitor.exe" --version
+          if errorlevel 1 exit /b 1
+          "%GITHUB_WORKSPACE%\dist\TMD56Monitor\tmd56-monitor.exe" --self-test
+          if errorlevel 1 exit /b 1
+      - name: Upload staged bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-tmd56-monitor-bundle
+          path: dist/TMD56Monitor
+          if-no-files-found: error

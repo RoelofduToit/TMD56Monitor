@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.tmd56.Monitor</id>
+  <name>TMD-56 Temperature Logger</name>
+  <summary>Dual-input temperature logger for simulation and replay</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Records and replays dual-channel temperature series. This is not an official Amprobe product.
+    </p>
+  </description>
+  <launchable type="desktop-id">tmd56-monitor.desktop</launchable>
+  <icon type="stock">tmd56-monitor</icon>
+  <releases>
+    <release version="0.1.0" date="2026-09-24"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=TMD-56 Temperature Logger
+GenericName=Temperature Logger
+Comment=Dual-input temperature logger for simulation and replay
+Exec=tmd56-monitor
+Icon=tmd56-monitor
+Terminal=false
+Categories=Science;
+StartupWMClass=tmd56-monitor
+Keywords=temperature;thermocouple;logger;

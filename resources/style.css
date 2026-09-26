@@ -1,0 +1,530 @@
+/*
+ * TMD-56 Temperature Logger
+ *
+ * Dark instrument shell. Every colour is named here so a later light
+ * face is a replacement of this block, not a rewrite of the widgets.
+ *
+ * Red is structural (the housing rail and primary controls), the same
+ * way the physical meter uses a red case around a dark face.
+ * Yellow is only a secondary-function accent.
+ */
+
+@define-color tmd_red #D71920;
+@define-color tmd_red_dark #A80F16;
+@define-color tmd_black #161719;
+@define-color tmd_graphite #202225;
+@define-color tmd_panel #292C30;
+@define-color tmd_control #373A3F;
+@define-color tmd_border #45484D;
+@define-color tmd_muted #A9ADB3;
+@define-color tmd_text #F2F3F4;
+@define-color tmd_lcd #C8CBC4;
+@define-color tmd_lcd_ink #161719;
+@define-color tmd_lcd_dim #3A3D38;
+@define-color tmd_yellow #E5B72F;
+@define-color tmd_green #3FA36A;
+@define-color tmd_cyan #3CB4D6;
+@define-color tmd_plot #161719;
+@define-color tmd_grid #373A3F;
+@define-color tmd_axis #A9ADB3;
+
+window.amprobe-shell {
+  background-color: @tmd_black;
+  color: @tmd_text;
+  font-family: "Inter", "Noto Sans", sans-serif;
+}
+
+window.amprobe-shell label {
+  color: @tmd_text;
+}
+
+/* Window chrome sits in the same shell as the face, not a separate theme bar. */
+window.amprobe-shell headerbar.chrome {
+  background-color: @tmd_graphite;
+  color: @tmd_text;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+}
+
+window.amprobe-shell headerbar.chrome windowcontrols {
+  margin-right: 4px;
+}
+
+window.amprobe-shell headerbar.chrome windowcontrols button {
+  background: transparent;
+  color: @tmd_muted;
+  border: none;
+  box-shadow: none;
+  border-radius: 4px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+
+window.amprobe-shell headerbar.chrome windowcontrols button:hover {
+  background-color: @tmd_control;
+  color: @tmd_text;
+}
+
+window.amprobe-shell headerbar.chrome windowcontrols button.close:hover {
+  background-color: @tmd_red_dark;
+  color: @tmd_text;
+}
+
+.brand-rail {
+  background-color: @tmd_red;
+  min-width: 8px;
+}
+
+.instrument-header {
+  background-color: @tmd_graphite;
+  padding: 6px 12px 6px 10px;
+  border-bottom: 1px solid @tmd_border;
+}
+
+.product-mark {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: @tmd_text;
+}
+
+window.amprobe-shell .product-line {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: @tmd_muted;
+}
+
+.toolbar-rule {
+  background-color: @tmd_border;
+  min-width: 1px;
+  min-height: 22px;
+  margin: 0 4px;
+}
+
+window.amprobe-shell .instrument-section-title,
+window.amprobe-shell .field-label {
+  color: @tmd_muted;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.context-row {
+  background-color: @tmd_graphite;
+  padding: 0 12px 8px 10px;
+  border-bottom: 1px solid @tmd_border;
+}
+
+/* One triple display, not three cards. Light face, dark figures. */
+.measurement-display {
+  background-color: @tmd_lcd;
+  border: 1px solid #8e928b;
+  border-radius: 4px;
+}
+
+.measurement-channel {
+  padding: 8px 16px 4px 16px;
+}
+
+.measurement-channel.with-rule {
+  border-left: 1px solid #a7aba4;
+}
+
+window.amprobe-shell .measurement-name {
+  color: @tmd_lcd_dim;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+}
+
+window.amprobe-shell .measurement-number {
+  color: @tmd_lcd_ink;
+  font-family: "Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 40px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+window.amprobe-shell .measurement-unit {
+  color: @tmd_lcd_dim;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.lcd-stats {
+  border-top: 1px solid #a7aba4;
+  padding: 4px 16px 6px 16px;
+}
+
+window.amprobe-shell .stat-label,
+window.amprobe-shell .stat-value {
+  color: @tmd_lcd_ink;
+  font-family: "Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+window.amprobe-shell .spike-mark {
+  color: @tmd_yellow;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.plot-container {
+  background-color: @tmd_plot;
+  border: 1px solid @tmd_border;
+  border-radius: 4px;
+  padding: 4px 8px 6px 8px;
+}
+
+.plot-toolbar {
+  padding: 2px 2px 0 2px;
+}
+
+window.amprobe-shell .instrument-section-title {
+  letter-spacing: 1.2px;
+}
+
+.view-group {
+  border: 1px solid @tmd_border;
+  border-radius: 4px;
+}
+
+button.view-option {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  box-shadow: none;
+  min-height: 26px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+button.view-option label {
+  color: @tmd_muted;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+button.view-option:hover label {
+  color: @tmd_text;
+}
+
+button.view-option:checked {
+  background-color: @tmd_control;
+  border-bottom: 2px solid @tmd_red;
+}
+
+button.view-option:checked label {
+  color: @tmd_text;
+}
+
+drawingarea.plot-canvas {
+  background-color: @tmd_plot;
+}
+
+/* Session facts are a single instrument row, not cards. */
+.fact-strip {
+  background-color: @tmd_graphite;
+  border-top: 1px solid @tmd_border;
+  padding: 6px 12px;
+}
+
+window.amprobe-shell .fact-label {
+  color: @tmd_muted;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.fact-value {
+  color: @tmd_text;
+  font-size: 13px;
+  font-weight: 600;
+  font-feature-settings: "tnum" 1;
+}
+
+.control-strip {
+  background-color: @tmd_graphite;
+  padding: 0 12px 8px 12px;
+}
+
+.status-bar {
+  background-color: @tmd_black;
+  border-top: 1px solid @tmd_border;
+  padding: 0 10px;
+  min-height: 26px;
+}
+
+.status-bar label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+window.amprobe-shell .status-connected {
+  color: @tmd_green;
+}
+
+window.amprobe-shell .status-recording {
+  color: @tmd_red;
+}
+
+window.amprobe-shell .status-warning {
+  color: @tmd_yellow;
+}
+
+window.amprobe-shell .status-offline {
+  color: @tmd_muted;
+}
+
+.status-gap {
+  color: @tmd_border;
+}
+
+/* Controls. Same 28 px height, 4 px radius, no pills. */
+window.amprobe-shell dropdown {
+  background-color: @tmd_panel;
+  color: @tmd_text;
+  border: 1px solid @tmd_border;
+  border-radius: 4px;
+  min-height: 28px;
+  padding: 0;
+}
+
+window.amprobe-shell dropdown > button {
+  background: transparent;
+  color: @tmd_text;
+  border: none;
+  box-shadow: none;
+  border-radius: 4px;
+  padding: 0 8px;
+  min-height: 26px;
+}
+
+window.amprobe-shell dropdown > button:hover {
+  background-color: @tmd_control;
+}
+
+window.amprobe-shell dropdown:disabled,
+window.amprobe-shell dropdown:disabled > button,
+window.amprobe-shell dropdown:disabled label {
+  color: #6e737a;
+  background-color: @tmd_graphite;
+}
+
+window.amprobe-shell dropdown label,
+window.amprobe-shell dropdown > button label {
+  color: @tmd_text;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+window.amprobe-shell entry {
+  background-color: @tmd_panel;
+  color: @tmd_text;
+  border: 1px solid @tmd_border;
+  border-radius: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  caret-color: @tmd_red;
+  font-size: 12px;
+}
+
+window.amprobe-shell entry:focus {
+  border-color: @tmd_red;
+}
+
+window.amprobe-shell entry:disabled {
+  color: #6e737a;
+  background-color: @tmd_graphite;
+}
+
+window.amprobe-shell entry placeholder {
+  color: #6e737a;
+}
+
+window.amprobe-shell spinbutton {
+  background-color: @tmd_panel;
+  color: @tmd_text;
+  border: 1px solid @tmd_border;
+  border-radius: 4px;
+  min-height: 28px;
+}
+
+window.amprobe-shell spinbutton entry,
+window.amprobe-shell spinbutton text {
+  background-color: transparent;
+  color: @tmd_text;
+  border: none;
+  min-height: 24px;
+  padding: 0 6px;
+  font-feature-settings: "tnum" 1;
+}
+
+window.amprobe-shell spinbutton button {
+  background-color: @tmd_control;
+  color: @tmd_text;
+  border: none;
+  box-shadow: none;
+  min-width: 20px;
+  min-height: 24px;
+  border-radius: 0;
+}
+
+window.amprobe-shell spinbutton button label {
+  color: @tmd_text;
+  font-size: 12px;
+}
+
+window.amprobe-shell spinbutton:disabled,
+window.amprobe-shell spinbutton:disabled entry,
+window.amprobe-shell spinbutton:disabled text {
+  color: #6e737a;
+  background-color: @tmd_graphite;
+}
+
+window.amprobe-shell checkbutton label {
+  color: @tmd_muted;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+window.amprobe-shell checkbutton check {
+  border: 1px solid @tmd_border;
+  border-radius: 2px;
+  background-color: @tmd_panel;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+window.amprobe-shell checkbutton check:checked {
+  background-color: @tmd_yellow;
+  border-color: @tmd_yellow;
+}
+
+window.amprobe-shell checkbutton:disabled label {
+  color: #6e737a;
+}
+
+window.amprobe-shell checkbutton check:disabled {
+  background-color: @tmd_graphite;
+  border-color: @tmd_border;
+}
+
+button.primary-control {
+  background-color: @tmd_red;
+  color: @tmd_text;
+  border: 1px solid @tmd_red_dark;
+  border-radius: 4px;
+  min-height: 28px;
+  padding: 0 12px;
+  box-shadow: none;
+}
+
+button.primary-control label {
+  color: @tmd_text;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+button.primary-control:hover {
+  background-color: #c1171d;
+}
+
+button.primary-control:active {
+  background-color: @tmd_red_dark;
+}
+
+button.primary-control:disabled {
+  background-color: @tmd_control;
+  border-color: @tmd_control;
+}
+
+button.primary-control:disabled label {
+  color: #6e737a;
+}
+
+button.secondary-control {
+  background-color: @tmd_panel;
+  color: @tmd_text;
+  border: 1px solid @tmd_border;
+  border-radius: 4px;
+  min-height: 28px;
+  padding: 0 12px;
+  box-shadow: none;
+}
+
+button.secondary-control label {
+  color: @tmd_text;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+button.secondary-control:hover {
+  background-color: @tmd_control;
+  border-color: #5c6066;
+}
+
+button.secondary-control:active {
+  background-color: #2a2d31;
+}
+
+button.secondary-control:disabled {
+  background-color: @tmd_graphite;
+  border-color: @tmd_border;
+}
+
+button.secondary-control:disabled label {
+  color: #6e737a;
+}
+
+button.secondary-control:checked {
+  background-color: @tmd_control;
+  border-color: @tmd_yellow;
+}
+
+button.primary-control:focus-visible,
+button.secondary-control:focus-visible,
+button.view-option:focus-visible,
+entry:focus-visible,
+dropdown:focus-visible,
+spinbutton:focus-visible {
+  outline: 1px solid @tmd_yellow;
+  outline-offset: 1px;
+}
+
+popover,
+popover contents {
+  background-color: @tmd_panel;
+  color: @tmd_text;
+  border: 1px solid @tmd_border;
+}
+
+popover listview row {
+  color: @tmd_text;
+  padding: 3px 10px;
+  border-radius: 2px;
+  min-height: 26px;
+}
+
+popover listview row:hover {
+  background-color: @tmd_control;
+}
+
+popover listview row:selected {
+  background-color: @tmd_red_dark;
+  color: @tmd_text;
+}

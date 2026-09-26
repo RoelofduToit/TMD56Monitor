@@ -1,0 +1,14 @@
+File Name:	meta.txt
+User Name:
+Description:
+	Synthetic notes before the table. Not a TMD-56 capture.
+
+Start Time:01/02/2026   09:15:00
+
+	ID	Comport		Channel	Type		Unit
+	1	COM3		CH1	K		Deg-C
+	1	COM3		CH2	K		Deg-C
+
+No.	Date	Time	CH01	CH02
+4	2026/01/02	09:15:00	18.0	18.5
+5	2026/01/02	09:15:02	18.2	18.6

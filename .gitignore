@@ -1,0 +1,8 @@
+build/
+build-*/
+dist/
+*.AppImage
+cmake-build-*/
+.cache/
+
+logs/
