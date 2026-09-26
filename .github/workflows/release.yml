@@ -72,6 +72,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ntldd
             mingw-w64-ucrt-x86_64-nsis
             zip
+            unzip
       - uses: actions/checkout@v4
       - name: Check tag matches CMake version
         run: |

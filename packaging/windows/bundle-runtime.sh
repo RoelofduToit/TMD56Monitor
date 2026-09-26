@@ -163,6 +163,9 @@ mkdir -p "$prefix/etc/gtk-4.0"
 if [[ -d "$mingw_prefix/etc/gtk-4.0" ]]; then
     cp -a "$mingw_prefix/etc/gtk-4.0/." "$prefix/etc/gtk-4.0/"
 fi
+if [[ ! -e "$prefix/etc/gtk-4.0/settings.ini" ]]; then
+    printf '%s\n' '[Settings]' 'gtk-theme-name=Adwaita' > "$prefix/etc/gtk-4.0/settings.ini"
+fi
 
 # A private fontconfig file so SVG icons do not look for the MSYS prefix.
 # WINDOWSFONTDIR is fontconfig's token for the Windows font directory.

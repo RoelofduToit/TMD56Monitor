@@ -1,10 +1,14 @@
+#include "platform/compat.h"
 #include "platform/user_paths.h"
 
 #include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if !defined(_WIN32)
 #include <unistd.h>
+#endif
 
 static int failures = 0;
 
@@ -55,8 +59,8 @@ static int check_default(const char *root)
 
 int main(int argc, char **argv)
 {
-    char dir[] = "/tmp/tmd56-paths-XXXXXX";
-    char child_root[] = "/tmp/tmd56-xdg-XXXXXX";
+    char dir[512];
+    char child_root[512];
     char exe[4096];
     const char *logs;
     char saved[1024];
@@ -65,14 +69,19 @@ int main(int argc, char **argv)
     if (argc > 2 && strcmp(argv[1], "--default") == 0) {
         return check_default(argv[2]);
     }
-    if (mkdtemp(dir) == NULL || mkdtemp(child_root) == NULL) {
+    if (tmd_temp_dir(dir, sizeof dir, "tmd56-paths") != 0 ||
+        tmd_temp_dir(child_root, sizeof child_root, "tmd56-xdg") != 0) {
         fprintf(stderr, "FAIL could not create temporary directories\n");
         return EXIT_FAILURE;
     }
     if (g_path_is_absolute(argv[0])) {
         snprintf(exe, sizeof exe, "%s", argv[0]);
     } else {
-        snprintf(exe, sizeof exe, "%s/%s", g_get_current_dir(), argv[0]);
+        char *cwd_now = g_get_current_dir();
+        char *joined = g_build_filename(cwd_now, argv[0], NULL);
+        snprintf(exe, sizeof exe, "%s", joined);
+        g_free(joined);
+        g_free(cwd_now);
     }
 
     EXPECT(run_default_root(exe, child_root) == 0);

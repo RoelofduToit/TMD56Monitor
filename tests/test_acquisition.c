@@ -1,13 +1,20 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "app.h"
+#include "platform/compat.h"
 
+#include <glib.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#if defined(_WIN32)
+#include <direct.h>
+#else
 #include <unistd.h>
+#endif
 
 static int failures = 0;
 
@@ -23,10 +30,14 @@ static void expect_true(int condition, const char *file, int line, const char *t
 
 static void sleep_ms(int ms)
 {
+#if defined(_WIN32)
+    Sleep((DWORD)ms);
+#else
     struct timespec ts;
     ts.tv_sec = ms / 1000;
     ts.tv_nsec = (long)(ms % 1000) * 1000000L;
     nanosleep(&ts, NULL);
+#endif
 }
 
 static size_t wait_for_samples(App *app, size_t target, int timeout_ms)
@@ -123,7 +134,7 @@ static int count_text(const char *text, const char *needle)
 
 int main(void)
 {
-    char dir[] = "/tmp/tmd56-acq-XXXXXX";
+    char dir[512];
     char err[256];
     App *app;
     const HistoryBuffer *history;
@@ -135,11 +146,11 @@ int main(void)
     char *text;
     int cycle;
 
-    if (mkdtemp(dir) == NULL || chdir(dir) != 0) {
+    if (tmd_temp_dir(dir, sizeof dir, "tmd56-acq") != 0 || chdir(dir) != 0) {
         fprintf(stderr, "FAIL could not create a temporary directory\n");
         return EXIT_FAILURE;
     }
-    setenv("TMD56_DATA_DIR", dir, 1);
+    g_setenv("TMD56_DATA_DIR", dir, TRUE);
 
     app = app_create();
     EXPECT(app != NULL);

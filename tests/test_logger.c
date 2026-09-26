@@ -2,11 +2,11 @@
 
 #include "logger.h"
 #include "measurement.h"
+#include "platform/compat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 static int failures = 0;
 
@@ -56,7 +56,7 @@ static char *read_all(const char *path)
 
 int main(void)
 {
-    char dir[] = "/tmp/tmd56-log-XXXXXX";
+    char dir[512];
     char err[128];
     Logger *logger;
     Logger *again;
@@ -65,7 +65,7 @@ int main(void)
     const char *path;
     char saved[768];
 
-    if (mkdtemp(dir) == NULL) {
+    if (tmd_temp_dir(dir, sizeof dir, "tmd56-log") != 0) {
         fprintf(stderr, "FAIL could not create a temporary directory\n");
         return EXIT_FAILURE;
     }

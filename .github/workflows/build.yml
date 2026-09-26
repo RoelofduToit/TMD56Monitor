@@ -56,6 +56,8 @@ jobs:
             mingw-w64-ucrt-x86_64-cairo
             mingw-w64-ucrt-x86_64-libserialport
             mingw-w64-ucrt-x86_64-ntldd
+            zip
+            unzip
       - uses: actions/checkout@v4
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -73,6 +75,21 @@ jobs:
           if errorlevel 1 exit /b 1
           "%GITHUB_WORKSPACE%\dist\TMD56Monitor\tmd56-monitor.exe" --self-test
           if errorlevel 1 exit /b 1
+      - name: Portable zip
+        run: |
+          cd "$GITHUB_WORKSPACE/dist"
+          zip -r TMD56Monitor-Windows-x64.zip TMD56Monitor
+          tops=$(unzip -Z1 TMD56Monitor-Windows-x64.zip | cut -d/ -f1 | sort -u)
+          test "$tops" = "TMD56Monitor"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -qx "TMD56Monitor/tmd56-monitor.exe"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -qx "TMD56Monitor/LICENSE"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -qx "TMD56Monitor/THIRD_PARTY_NOTICES.md"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -q "^TMD56Monitor/share/"
+          unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -q "^TMD56Monitor/etc/"
+          if unzip -Z1 TMD56Monitor-Windows-x64.zip | grep -E '(^|/)(build|ucrt64|msys64)/'; then
+            echo "zip contains a build or MSYS directory" >&2
+            exit 1
+          fi
       - name: Upload staged bundle
         uses: actions/upload-artifact@v4
         with:
