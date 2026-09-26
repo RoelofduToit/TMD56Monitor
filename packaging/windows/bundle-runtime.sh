@@ -51,12 +51,35 @@ to_unix() {
     fi
 }
 
+# ntldd follows imports into System32. Only MinGW DLLs belong in the package.
+is_mingw_runtime() {
+    local src=$1
+    local mixed mingw_mixed
+    case "$(basename "$src" | tr '[:upper:]' '[:lower:]')" in
+        *.dll) ;;
+        *) return 1 ;;
+    esac
+    if ! command -v cygpath >/dev/null 2>&1; then
+        case "$src" in
+            "$mingw_prefix"/*) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
+    mixed=$(cygpath -m "$src" | tr '[:upper:]' '[:lower:]' | tr '\\' '/')
+    mingw_mixed=$(cygpath -m "$mingw_prefix" | tr '[:upper:]' '[:lower:]' | tr '\\' '/')
+    mingw_mixed=${mingw_mixed%/}
+    case "$mixed" in
+        "$mingw_mixed"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 copy_dll() {
     local src=$1
     local base dest
     src=$(to_unix "$src")
     [[ -f "$src" ]] || return 0
-    if skip_dll "$src"; then
+    if skip_dll "$src" || ! is_mingw_runtime "$src"; then
         return 0
     fi
     base=$(basename "$src")
@@ -64,6 +87,38 @@ copy_dll() {
     if [[ ! -f "$dest" ]]; then
         cp -a "$src" "$dest"
         echo "dll $base"
+    fi
+}
+
+# Make loader paths relative to the cache file: "loaders/name.dll".
+rewrite_loaders_cache() {
+    local cache=$1
+    local tmp line rest
+    tmp=$(mktemp)
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line=${line//$'\r'/}
+        line=${line//\\//}
+        while [[ "$line" == *'//'* ]]; do
+            line=${line//'//'/'/'}
+        done
+        if [[ "$line" == \#* ]] && [[ "$line" == *ucrt64* || "$line" == *msys64* || "$line" == *mingw64* || "$line" == *mingw32* ]]; then
+            continue
+        fi
+        if [[ "$line" == *'/loaders/'* ]]; then
+            rest=${line#*/loaders/}
+            if [[ "$line" == \"* ]]; then
+                line="\"loaders/${rest}"
+            else
+                line="loaders/${rest}"
+            fi
+        fi
+        printf '%s\n' "$line"
+    done < "$cache" > "$tmp"
+    mv "$tmp" "$cache"
+    if grep -E -q 'ucrt64|msys64|mingw64|mingw32' "$cache"; then
+        echo "tmd56: loaders.cache still points at the build machine:" >&2
+        grep -E -n 'ucrt64|msys64|mingw64|mingw32' "$cache" >&2
+        return 1
     fi
 }
 
@@ -114,17 +169,7 @@ if [[ -d "$loader_dir" ]]; then
         echo "tmd56: gdk-pixbuf loaders.cache was not found" >&2
         exit 1
     fi
-    # Entries are relative to the cache file: loaders/name.dll.
-    # Quoted absolute paths are the only ones rewritten.
-    sed -i 's|\\|/|g' "$dest_cache"
-    sed -i -E \
-        -e 's|"[A-Za-z]:/[^"]*/loaders/|"loaders/|g' \
-        -e 's|"/[^"]*/loaders/|"loaders/|g' \
-        "$dest_cache"
-    if grep -E -q 'ucrt64|msys64|mingw64|mingw32' "$dest_cache"; then
-        echo "tmd56: loaders.cache still points at the build machine" >&2
-        exit 1
-    fi
+    rewrite_loaders_cache "$dest_cache"
 else
     echo "tmd56: gdk-pixbuf loaders were not found under $loader_dir" >&2
     exit 1
@@ -217,11 +262,11 @@ while IFS= read -r line; do
             path=${path%% (*}
             path=${path//$'\r'/}
             [[ -n "$path" && "$path" != "not found" ]] || continue
-            if skip_dll "$path"; then
-                continue
-            fi
             path=$(to_unix "$path")
             [[ -f "$path" ]] || continue
+            if skip_dll "$path" || ! is_mingw_runtime "$path"; then
+                continue
+            fi
             cp -a "$path" "$audit_bin/$(basename "$path")"
             ;;
     esac
