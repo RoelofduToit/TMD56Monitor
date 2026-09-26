@@ -272,15 +272,82 @@ while IFS= read -r line; do
     esac
 done < <(ntldd -R "$audit_bin/ntldd.exe")
 
+# Fail only when a DLL we ship has an unresolved import. ntldd also walks
+# System32, and those trees contain optional Windows DLLs that are not part
+# of this package.
 audit() {
     local target=$1
-    local out
+    local out missing
     if ! out=$(cd "$audit_bin" && PATH="$audit_bin:$prefix" ./ntldd.exe -R "$target"); then
         echo "tmd56: ntldd could not read $target" >&2
         return 1
     fi
-    local missing
-    missing=$(printf '%s\n' "$out" | grep -i "not found" | grep -viE 'api-ms-|ext-ms-' || true)
+    missing=$(printf '%s\n' "$out" | TMD_AUDIT_PREFIX="$prefix" TMD_AUDIT_BIN="$audit_bin" awk '
+        function indent_of(s,    i) {
+            i = 1
+            while (substr(s, i, 1) == " " || substr(s, i, 1) == "\t") {
+                i++
+            }
+            return i
+        }
+        function norm(s,    out, i, c) {
+            out = ""
+            s = tolower(s)
+            for (i = 1; i <= length(s); i++) {
+                c = substr(s, i, 1)
+                if (c == "\\") {
+                    c = "/"
+                }
+                out = out c
+            }
+            if (substr(out, length(out), 1) == "/") {
+                out = substr(out, 1, length(out) - 1)
+            }
+            return out
+        }
+        function is_ours(path,    low, root) {
+            low = norm(path)
+            root = norm(ENVIRON["TMD_AUDIT_PREFIX"])
+            if (root != "" && (index(low, root "/") == 1 || low == root)) {
+                return 1
+            }
+            root = norm(ENVIRON["TMD_AUDIT_BIN"])
+            if (root != "" && (index(low, root "/") == 1 || low == root)) {
+                return 1
+            }
+            return 0
+        }
+        BEGIN { ours[0] = 1; depth[0] = 0; n = 0 }
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            if (index(line, "=>") == 0) {
+                next
+            }
+            ind = indent_of(line)
+            while (n > 0 && depth[n] >= ind) {
+                n--
+            }
+            parent = ours[n]
+            split_at = index(line, "=>")
+            left = substr(line, 1, split_at - 1)
+            right = substr(line, split_at + 2)
+            gsub(/^[ \t]+|[ \t]+$/, "", left)
+            if (right ~ /not found/) {
+                lname = tolower(left)
+                if (parent && lname !~ /^api-ms-/ && lname !~ /^ext-ms-/) {
+                    print left
+                }
+            } else {
+                path = right
+                sub(/^[ \t]+/, "", path)
+                sub(/ \(.*$/, "", path)
+                n++
+                depth[n] = ind
+                ours[n] = is_ours(path)
+            }
+        }
+    ')
     if [[ -n "$missing" ]]; then
         echo "tmd56: unresolved imports in $target" >&2
         printf '%s\n' "$missing" >&2
