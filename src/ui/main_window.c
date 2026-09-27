@@ -311,7 +311,7 @@ static const char *overlay_for(const Ui *ui)
         return NULL;
     }
     if (app_source(ui->app) == APP_SOURCE_TMD56) {
-        return "Hardware support not available in v0.1.0";
+        return "Hardware support not available in v" TMD_VERSION_STRING;
     }
     if (app_source(ui->app) == APP_SOURCE_REPLAY) {
         if (app_replay_path(ui->app) == NULL || app_replay_path(ui->app)[0] == '\0') {
@@ -1030,7 +1030,7 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
         ui->banner = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
         gtk_widget_set_margin_start(ui->banner, 16);
         unavailable_name = gtk_label_new("TMD-56");
-        unavailable_detail = gtk_label_new("Hardware support not available in v0.1.0");
+        unavailable_detail = gtk_label_new("Hardware support not available in v" TMD_VERSION_STRING);
         gtk_widget_add_css_class(unavailable_name, "unavailable-name");
         gtk_widget_add_css_class(unavailable_detail, "unavailable-detail");
         gtk_widget_set_halign(unavailable_name, GTK_ALIGN_START);

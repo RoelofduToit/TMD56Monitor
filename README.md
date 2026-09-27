@@ -2,7 +2,7 @@
 
 Dual-input temperature logger for simulation and replay. This is not an official Amprobe product. The physical meter connection is still experimental and does not decode temperatures.
 
-The window title is **TMD-56 Temperature Logger**. The executable name is `tmd56-monitor`. Version 0.1.0 is shown in About.
+The window title is **TMD-56 Temperature Logger**. The executable name is `tmd56-monitor`. Version 0.1.1 is shown in About.
 
 ## For users
 
@@ -27,7 +27,7 @@ chmod +x TMD56Monitor-x86_64.AppImage
 
 You can start it from any directory. The stylesheet is inside the application. Recordings go to `$XDG_DATA_HOME/TMD56Monitor/logs`, which is `~/.local/share/TMD56Monitor/logs` when `XDG_DATA_HOME` is unset.
 
-`TMD56Monitor_0.1.0_amd64.deb` is optional. That package uses the distribution's GTK and libserialport instead of bundling them, so it is not the standalone release. The AppImage is.
+`TMD56Monitor_0.1.1_amd64.deb` is optional. That package uses the distribution's GTK and libserialport instead of bundling them, so it is not the standalone release. The AppImage is.
 
 ## For developers
 
@@ -83,7 +83,7 @@ tmd56-monitor --version
 tmd56-monitor --self-test
 ```
 
-`--version` prints `TMD-56 Temperature Logger 0.1.0`. `--self-test` checks the embedded stylesheet and icon, the log directory, the simulator, and the history buffer. It does not open a window and does not need the meter. Exit code 0 means every check passed.
+`--version` prints `TMD-56 Temperature Logger 0.1.1`. `--self-test` checks the embedded stylesheet and icon, the log directory, the simulator, and the history buffer. It does not open a window and does not need the meter. Exit code 0 means every check passed.
 
 ### Packaging
 
@@ -106,7 +106,7 @@ Windows installer and portable zip are produced on a Windows runner by installin
 - `TMD56Monitor-Setup-x64.exe`
 - `TMD56Monitor-Windows-x64.zip`
 
-Pushing a tag `v0.1.0` runs `.github/workflows/release.yml` and attaches those files to the GitHub Release. There is no automatic updater.
+Pushing a tag such as `v0.1.1` runs `.github/workflows/release.yml` and attaches those files to the GitHub Release. There is no automatic updater.
 
 There is no automatic updater in this version. GitHub Releases are the distribution channel.
 
