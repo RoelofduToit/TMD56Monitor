@@ -18,19 +18,19 @@
 #include <string.h>
 
 static const char *const SOURCE_ITEMS[] = {
-    "Simulator",
-    "Replay File",
+    "SIMULATOR",
+    "REPLAY FILE",
     "TMD-56",
     NULL
 };
 
 static const char *const SCENARIO_ITEMS[] = {
-    "Stable",
-    "Heating",
-    "Cooling",
-    "Thermal gradient",
-    "Noise",
-    "Occasional spike",
+    "STABLE",
+    "HEATING",
+    "COOLING",
+    "THERMAL GRADIENT",
+    "NOISE",
+    "SPIKE TEST",
     NULL
 };
 
@@ -72,20 +72,20 @@ typedef struct {
     GtkWidget *scenario_dropdown;
     GtkWidget *interval_box;
     GtkWidget *interval_dropdown;
-    GtkWidget *context_row;
+    GtkWidget *action_row;
     GtkWidget *file_button;
+    GtkWidget *file_box;
     GtkWidget *file_label;
     GtkWidget *speed_box;
     GtkWidget *speed_dropdown;
-    GtkWidget *port_box;
-    GtkWidget *port_entry;
     GtkWidget *banner;
     GtkWidget *start_button;
     GtkWidget *stop_button;
+    GtkWidget *play_button;
     GtkWidget *pause_button;
     GtkWidget *restart_button;
-    GtkWidget *mode_label;
-    GtkWidget *acquire_label;
+    GtkWidget *session_box;
+    GtkWidget *session_hint;
     GtkWidget *about_button;
     GtkWidget *t1_value;
     GtkWidget *t2_value;
@@ -95,18 +95,19 @@ typedef struct {
     GtkWidget *t2_stats;
     GtkWidget *samples_value;
     GtkWidget *elapsed_value;
-    GtkWidget *interval_value;
     GtkWidget *view_buttons[6];
     GtkWidget *drawing;
     GtkWidget *session_entry;
-    GtkWidget *log_start;
-    GtkWidget *log_stop;
+    GtkWidget *log_button;
     GtkWidget *state_label;
+    GtkWidget *spike_box;
     GtkWidget *spike_check;
     GtkWidget *spike_spin;
     LivePlot plot;
     guint timer_id;
     bool syncing;
+    bool session_hint_on;
+    char session_message[384];
 } Ui;
 
 static GtkWidget *make_dropdown(const char *const *items, guint selected)
@@ -128,11 +129,34 @@ static GtkWidget *inline_field(const char *caption, GtkWidget *control)
     return box;
 }
 
-static GtkWidget *control_button(const char *text, gboolean primary)
+static GtkWidget *control_button(const char *text, const char *width_class)
 {
     GtkWidget *button = gtk_button_new_with_label(text);
-    gtk_widget_add_css_class(button, primary ? "primary-control" : "secondary-control");
+    gtk_widget_add_css_class(button, "secondary-control");
+    if (width_class != NULL) {
+        gtk_widget_add_css_class(button, width_class);
+    }
     return button;
+}
+
+static void set_emphasis(GtkWidget *button, gboolean primary)
+{
+    gboolean is_primary = gtk_widget_has_css_class(button, "primary-control");
+    if (is_primary == primary) {
+        return;
+    }
+    gtk_widget_remove_css_class(button, "primary-control");
+    gtk_widget_remove_css_class(button, "secondary-control");
+    gtk_widget_add_css_class(button, primary ? "primary-control" : "secondary-control");
+}
+
+static void set_button_label(GtkWidget *button, const char *text)
+{
+    const char *current = gtk_button_get_label(GTK_BUTTON(button));
+    if (current != NULL && text != NULL && strcmp(current, text) == 0) {
+        return;
+    }
+    gtk_button_set_label(GTK_BUTTON(button), text);
 }
 
 static GtkWidget *fact_column(const char *caption, GtkWidget *value)
@@ -265,18 +289,19 @@ static void set_status_class(GtkWidget *label, const char *klass)
     gtk_widget_add_css_class(label, klass);
 }
 
+static void set_label(GtkWidget *label, const char *text);
+
 static void update_file_label(Ui *ui)
 {
     const char *path = app_replay_path(ui->app);
-    size_t count = app_replay_sample_count(ui->app);
     if (path == NULL || path[0] == '\0') {
-        gtk_label_set_text(GTK_LABEL(ui->file_label), "NO FILE");
+        set_label(ui->file_label, "No replay file loaded");
+        gtk_widget_set_tooltip_text(ui->file_label, NULL);
         return;
     }
     char *base = g_path_get_basename(path);
-    char text[160];
-    snprintf(text, sizeof text, "%s (%zu)", base, count);
-    gtk_label_set_text(GTK_LABEL(ui->file_label), text);
+    set_label(ui->file_label, base);
+    gtk_widget_set_tooltip_text(ui->file_label, path);
     g_free(base);
 }
 
@@ -286,10 +311,16 @@ static const char *overlay_for(const Ui *ui)
         return NULL;
     }
     if (app_source(ui->app) == APP_SOURCE_TMD56) {
-        return "Experimental / unverified — no temperatures are decoded";
+        return "Hardware support not available in v0.1.0";
+    }
+    if (app_source(ui->app) == APP_SOURCE_REPLAY) {
+        if (app_replay_path(ui->app) == NULL || app_replay_path(ui->app)[0] == '\0') {
+            return "Open a replay file";
+        }
+        return "Play the replay file";
     }
     if (!app_is_acquiring(ui->app)) {
-        return "START to acquire";
+        return "Start acquisition";
     }
     return "Waiting for samples";
 }
@@ -351,8 +382,9 @@ static void refresh_ui(Ui *ui)
     char text[192];
     char grouped[48];
     const char *session;
-    const char *log_path;
-    const char *interval_text;
+    const char *replay_path;
+    bool replay_loaded;
+    bool replay_paused;
     AppStatusLevel level = app_status_level(ui->app);
     size_t samples = history_buffer_count(app_history(ui->app));
 
@@ -395,97 +427,58 @@ static void refresh_ui(Ui *ui)
     format_clock(text, sizeof text, latest != NULL ? latest->elapsed_seconds : 0.0);
     set_label(ui->elapsed_value, text);
 
-    if (replay) {
-        interval_text = selected_text(ui->speed_dropdown, SPEED_ITEMS, 5);
-    } else if (tmd) {
-        interval_text = "—";
-    } else {
-        interval_text = selected_text(ui->interval_dropdown, INTERVAL_ITEMS, 4);
-    }
-    set_label(ui->interval_value, interval_text);
-
-    if (tmd) {
-        set_label(ui->mode_label, "TMD-56");
-    } else if (replay) {
-        set_label(ui->mode_label, "REPLAY");
-    } else {
-        set_label(ui->mode_label, "SIMULATOR");
-    }
-
+    replay_path = app_replay_path(ui->app);
+    replay_loaded = replay_path != NULL && replay_path[0] != '\0';
+    replay_paused = app_replay_paused(ui->app);
     {
-        const char *state_word = "IDLE";
         const char *state_class = "status-offline";
-        char line[384];
-        char logging_part[160];
+        char line[512];
+        const char *speed_text = selected_text(ui->speed_dropdown, SPEED_ITEMS, 5);
+        const char *sample_text = selected_text(ui->interval_dropdown, INTERVAL_ITEMS, 4);
 
-        logging_part[0] = '\0';
-        if (tmd && running) {
-            state_word = "UNVERIFIED";
-            state_class = "status-warning";
-        } else if (replay && running && app_replay_paused(ui->app)) {
-            state_word = "PAUSED";
-            state_class = "status-warning";
-        } else if (replay && running) {
-            state_word = "REPLAYING";
-            state_class = "status-connected";
-        } else if (replay && app_replay_finished(ui->app)) {
-            state_word = "COMPLETE";
-            state_class = "status-offline";
-        } else if (running) {
-            state_word = "ACQUIRING";
-            state_class = "status-connected";
+        if (level == APP_LEVEL_ERROR && app_status(ui->app)[0] != '\0') {
+            snprintf(line, sizeof line, "● %s    %s",
+                     logging ? "LOGGING" : running ? "ACQUIRING" : "IDLE",
+                     app_status(ui->app));
+            state_class = logging ? "status-recording" : "status-warning";
+        } else if (replay) {
+            if (!replay_loaded) {
+                snprintf(line, sizeof line, "● IDLE    SOURCE REPLAY FILE");
+            } else {
+                char *base = g_path_get_basename(replay_path);
+                if (!running && app_replay_finished(ui->app)) {
+                    snprintf(line, sizeof line, "● COMPLETE    %s    %s SAMPLES", base, grouped);
+                    state_class = "status-offline";
+                } else if (running && replay_paused) {
+                    snprintf(line, sizeof line, "● PAUSED    %s    %s SAMPLES    %s",
+                             base, grouped, speed_text);
+                    state_class = "status-warning";
+                } else if (running) {
+                    snprintf(line, sizeof line, "● REPLAYING    %s    %s SAMPLES    %s",
+                             base, grouped, speed_text);
+                    state_class = "status-connected";
+                } else {
+                    snprintf(line, sizeof line, "● IDLE    %s    %s SAMPLES", base, grouped);
+                }
+                g_free(base);
+            }
         } else if (tmd) {
-            state_word = "OFFLINE";
-        }
-        set_label(ui->acquire_label, tmd && running ? "● UNVERIFIED" :
-                                      replay && running && app_replay_paused(ui->app) ? "● PAUSED" :
-                                      replay && running ? "● REPLAYING" :
-                                      replay && app_replay_finished(ui->app) ? "● COMPLETE" :
-                                      running ? "● ACQUIRING" :
-                                      tmd ? "● OFFLINE" : "● IDLE");
-        set_status_class(ui->acquire_label, state_class);
-
-        log_path = app_log_path(ui->app);
-        if (logging && log_path != NULL && log_path[0] != '\0') {
-            char *base = g_path_get_basename(log_path);
-            snprintf(logging_part, sizeof logging_part, "    LOGGING %s", base);
+            snprintf(line, sizeof line, "● IDLE    SOURCE TMD-56");
+            state_class = "status-warning";
+        } else if (logging) {
+            const char *log_path = app_log_path(ui->app);
+            char *base = (log_path != NULL && log_path[0] != '\0')
+                             ? g_path_get_basename(log_path) : NULL;
+            snprintf(line, sizeof line, "● LOGGING    SOURCE SIMULATOR    %s SAMPLES    %s    %s",
+                     grouped, sample_text, base != NULL ? base : "");
             g_free(base);
             state_class = "status-recording";
-        }
-        if (level == APP_LEVEL_ERROR) {
-            snprintf(line, sizeof line,
-                     "● %s    %s    SOURCE %s    %s SAMPLES    %s%s",
-                     state_word, app_status(ui->app),
-                     tmd ? "TMD-56" : replay ? "REPLAY" : "SIMULATOR",
-                     grouped, interval_text, logging_part);
-            if (!logging) {
-                state_class = "status-warning";
-            }
-        } else if (replay) {
-            const char *path = app_replay_path(ui->app);
-            const char *summary = app_replay_summary(ui->app);
-            char *base = (path != NULL && path[0] != '\0') ? g_path_get_basename(path) : NULL;
-            const char *shown = (base != NULL && base[0] != '\0') ? base : "—";
-            bool complete = !running && app_replay_finished(ui->app);
-            if (complete) {
-                snprintf(line, sizeof line, "● COMPLETE    FILE %s    %s SAMPLES",
-                         shown, grouped);
-            } else if (running) {
-                snprintf(line, sizeof line, "● %s    FILE %s    %s SAMPLES    %s",
-                         state_word, shown, grouped, interval_text);
-            } else if (summary != NULL && summary[0] != '\0') {
-                snprintf(line, sizeof line, "● IDLE    FILE %s    %s SAMPLES    %s",
-                         shown, grouped, summary);
-            } else {
-                snprintf(line, sizeof line, "● IDLE    FILE %s    %s SAMPLES",
-                         shown, grouped);
-            }
-            g_free(base);
+        } else if (running) {
+            snprintf(line, sizeof line, "● ACQUIRING    SOURCE SIMULATOR    %s SAMPLES    %s",
+                     grouped, sample_text);
+            state_class = "status-connected";
         } else {
-            snprintf(line, sizeof line, "● %s    SOURCE %s    %s SAMPLES    %s%s",
-                     state_word,
-                     tmd ? "TMD-56" : "SIMULATOR",
-                     grouped, interval_text, logging_part);
+            snprintf(line, sizeof line, "● IDLE    SOURCE SIMULATOR");
         }
         set_label(ui->state_label, line);
         set_status_class(ui->state_label, state_class);
@@ -493,39 +486,67 @@ static void refresh_ui(Ui *ui)
 
     gtk_widget_set_visible(ui->scenario_box, simulator);
     gtk_widget_set_visible(ui->interval_box, simulator);
-    gtk_widget_set_visible(ui->context_row, replay || tmd);
     gtk_widget_set_visible(ui->file_button, replay);
-    gtk_widget_set_visible(ui->file_label, replay);
+    gtk_widget_set_visible(ui->file_box, replay);
     gtk_widget_set_visible(ui->speed_box, replay);
+    gtk_widget_set_visible(ui->play_button, replay);
     gtk_widget_set_visible(ui->pause_button, replay);
     gtk_widget_set_visible(ui->restart_button, replay);
-    gtk_widget_set_visible(ui->port_box, tmd);
     gtk_widget_set_visible(ui->banner, tmd);
+    gtk_widget_set_visible(ui->start_button, simulator);
+    gtk_widget_set_visible(ui->stop_button, simulator);
+    gtk_widget_set_visible(ui->session_box, simulator);
+    gtk_widget_set_visible(ui->log_button, simulator);
+    gtk_widget_set_visible(ui->action_row, !tmd);
+    gtk_widget_set_visible(ui->spike_box, !tmd);
 
-    gtk_button_set_label(GTK_BUTTON(ui->start_button),
-                         tmd ? "CONNECT" : replay ? "PLAY" : "START");
-    gtk_widget_set_sensitive(ui->start_button, !running || (replay && app_replay_paused(ui->app)));
-    gtk_widget_set_sensitive(ui->stop_button, running);
+    gtk_widget_set_sensitive(ui->start_button, simulator && !running);
+    set_emphasis(ui->start_button, simulator && !running);
+    gtk_widget_set_sensitive(ui->stop_button, simulator && running);
+    set_emphasis(ui->stop_button, FALSE);
     gtk_widget_set_sensitive(ui->source_dropdown, !running);
-    gtk_widget_set_sensitive(ui->file_button, !running);
-    gtk_widget_set_sensitive(ui->port_entry, !running);
-    gtk_widget_set_sensitive(ui->pause_button, running && replay);
+    gtk_widget_set_sensitive(ui->file_button, replay && !running);
+    set_emphasis(ui->file_button, replay && !running && !replay_loaded);
+    {
+        gboolean play_ready = replay && replay_loaded && (!running || replay_paused);
+        gboolean pause_ready = replay && running && !replay_paused;
+        gtk_widget_set_sensitive(ui->play_button, play_ready);
+        set_emphasis(ui->play_button, play_ready);
+        gtk_widget_set_sensitive(ui->pause_button, pause_ready);
+        set_emphasis(ui->pause_button, pause_ready);
+    }
     gtk_widget_set_sensitive(ui->restart_button,
-                             replay && (running || app_replay_finished(ui->app)));
-    gtk_widget_set_sensitive(ui->spike_check, !tmd);
-    gtk_widget_set_sensitive(ui->spike_spin, !tmd);
-
-    ui->syncing = true;
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ui->pause_button), app_replay_paused(ui->app));
-    gtk_button_set_label(GTK_BUTTON(ui->pause_button),
-                         app_replay_paused(ui->app) ? "RESUME" : "PAUSE");
-    ui->syncing = false;
+                             replay && replay_loaded &&
+                                 (running || app_replay_finished(ui->app)));
+    set_emphasis(ui->restart_button, FALSE);
 
     session = gtk_editable_get_text(GTK_EDITABLE(ui->session_entry));
-    gtk_widget_set_sensitive(ui->session_entry, !logging);
-    gtk_widget_set_sensitive(ui->log_start,
-                             running && !replay && !logging && session_name_usable(session));
-    gtk_widget_set_sensitive(ui->log_stop, logging);
+    if (session_name_usable(session) || !simulator) {
+        ui->session_hint_on = false;
+    }
+    gtk_widget_set_sensitive(ui->session_entry, simulator && !logging);
+    if (logging) {
+        set_button_label(ui->log_button, "STOP LOGGING");
+        gtk_widget_set_sensitive(ui->log_button, TRUE);
+        set_emphasis(ui->log_button, FALSE);
+        gtk_widget_set_tooltip_text(ui->log_button, "Stop recording and close the CSV file.");
+    } else {
+        set_button_label(ui->log_button, "START LOGGING");
+        gtk_widget_set_sensitive(ui->log_button, simulator && running);
+        set_emphasis(ui->log_button, simulator && running);
+        gtk_widget_set_tooltip_text(ui->log_button, "Record incoming measurements to a CSV file.");
+    }
+    if (ui->session_hint_on) {
+        const char *hint = ui->session_message[0] != '\0'
+                               ? ui->session_message
+                               : "Enter a session name before logging.";
+        set_label(ui->session_hint, hint);
+        gtk_widget_set_visible(ui->session_hint, TRUE);
+        gtk_widget_add_css_class(ui->session_entry, "entry-invalid");
+    } else {
+        gtk_widget_set_visible(ui->session_hint, FALSE);
+        gtk_widget_remove_css_class(ui->session_entry, "entry-invalid");
+    }
     update_file_label(ui);
 }
 
@@ -631,20 +652,28 @@ static void on_view_toggled(GtkToggleButton *button, gpointer user_data)
     gtk_widget_queue_draw(ui->drawing);
 }
 
-static void on_port_changed(GtkEditable *editable, gpointer user_data)
-{
-    Ui *ui = user_data;
-    app_set_serial_port(ui->app, gtk_editable_get_text(editable));
-    refresh_ui(ui);
-}
-
 static void on_start(GtkButton *button, gpointer user_data)
 {
     Ui *ui = user_data;
     char error[384];
     (void)button;
-    if (app_source(ui->app) == APP_SOURCE_REPLAY && app_is_acquiring(ui->app) &&
-        app_replay_paused(ui->app)) {
+    if (app_source(ui->app) != APP_SOURCE_SIMULATOR) {
+        return;
+    }
+    if (app_start(ui->app, error, sizeof error) != 0) {
+        refresh_ui(ui);
+        return;
+    }
+    refresh_ui(ui);
+    gtk_widget_queue_draw(ui->drawing);
+}
+
+static void on_play(GtkButton *button, gpointer user_data)
+{
+    Ui *ui = user_data;
+    char error[384];
+    (void)button;
+    if (app_is_acquiring(ui->app) && app_replay_paused(ui->app)) {
         app_replay_pause(ui->app, false);
         refresh_ui(ui);
         return;
@@ -665,13 +694,13 @@ static void on_stop(GtkButton *button, gpointer user_data)
     refresh_ui(ui);
 }
 
-static void on_pause(GtkToggleButton *button, gpointer user_data)
+static void on_pause(GtkButton *button, gpointer user_data)
 {
     Ui *ui = user_data;
-    if (ui->syncing) {
-        return;
+    (void)button;
+    if (app_is_acquiring(ui->app) && !app_replay_paused(ui->app)) {
+        app_replay_pause(ui->app, true);
     }
-    app_replay_pause(ui->app, gtk_toggle_button_get_active(button));
     refresh_ui(ui);
 }
 
@@ -752,24 +781,36 @@ static void on_session_changed(GtkEditable *editable, gpointer user_data)
     refresh_ui(user_data);
 }
 
-static void on_log_start(GtkButton *button, gpointer user_data)
+static void on_log_clicked(GtkButton *button, gpointer user_data)
 {
     Ui *ui = user_data;
     char error[384];
     const char *session = gtk_editable_get_text(GTK_EDITABLE(ui->session_entry));
     (void)button;
-    if (app_start_logging(ui->app, session, error, sizeof error) != 0) {
+    if (app_is_logging(ui->app)) {
+        ui->session_hint_on = false;
+        ui->session_message[0] = '\0';
+        app_stop_logging(ui->app);
         refresh_ui(ui);
         return;
     }
-    refresh_ui(ui);
-}
-
-static void on_log_stop(GtkButton *button, gpointer user_data)
-{
-    Ui *ui = user_data;
-    (void)button;
-    app_stop_logging(ui->app);
+    if (!session_name_usable(session)) {
+        ui->session_hint_on = true;
+        snprintf(ui->session_message, sizeof ui->session_message,
+                 "Enter a session name before logging.");
+        refresh_ui(ui);
+        gtk_widget_grab_focus(ui->session_entry);
+        return;
+    }
+    ui->session_hint_on = false;
+    ui->session_message[0] = '\0';
+    if (app_start_logging(ui->app, session, error, sizeof error) != 0) {
+        ui->session_hint_on = true;
+        snprintf(ui->session_message, sizeof ui->session_message, "%s",
+                 error[0] != '\0' ? error : "Logging did not start.");
+        refresh_ui(ui);
+        return;
+    }
     refresh_ui(ui);
 }
 
@@ -870,7 +911,6 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
     GtkWidget *identity;
     GtkWidget *mark;
     GtkWidget *line;
-    GtkWidget *header_tools;
     GtkWidget *body;
     GtkWidget *rail;
     GtkWidget *column;
@@ -882,7 +922,6 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
     GtkWidget *plot_title;
     GtkWidget *view_group;
     GtkWidget *facts;
-    GtkWidget *controls;
     GtkWidget *status;
     GtkAdjustment *threshold;
     int view;
@@ -916,41 +955,10 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
     gtk_box_append(GTK_BOX(identity), mark);
     gtk_box_append(GTK_BOX(identity), line);
 
-    ui->source_dropdown = make_dropdown(SOURCE_ITEMS, 0);
-    gtk_widget_set_size_request(ui->source_dropdown, 148, 28);
-    ui->scenario_dropdown = make_dropdown(SCENARIO_ITEMS, 0);
-    gtk_widget_set_size_request(ui->scenario_dropdown, 168, 28);
-    ui->scenario_box = inline_field("SCENARIO", ui->scenario_dropdown);
-    ui->interval_dropdown = make_dropdown(INTERVAL_ITEMS, 1);
-    gtk_widget_set_size_request(ui->interval_dropdown, 96, 28);
-    ui->interval_box = inline_field("INTERVAL", ui->interval_dropdown);
-    ui->mode_label = gtk_label_new("SIMULATOR");
-    gtk_widget_add_css_class(ui->mode_label, "fact-value");
-    ui->acquire_label = gtk_label_new("● IDLE");
-    gtk_widget_add_css_class(ui->acquire_label, "status-offline");
-
-    header_tools = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_set_valign(header_tools, GTK_ALIGN_CENTER);
-    gtk_box_append(GTK_BOX(header_tools), inline_field("SOURCE", ui->source_dropdown));
-    gtk_box_append(GTK_BOX(header_tools), ui->scenario_box);
-    gtk_box_append(GTK_BOX(header_tools), ui->interval_box);
-    {
-        GtkWidget *rule = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-        gtk_widget_add_css_class(rule, "toolbar-rule");
-        gtk_box_append(GTK_BOX(header_tools), rule);
-    }
-    gtk_box_append(GTK_BOX(header_tools), ui->mode_label);
-    gtk_box_append(GTK_BOX(header_tools), ui->acquire_label);
-    ui->about_button = control_button("ABOUT", FALSE);
-    gtk_box_append(GTK_BOX(header_tools), ui->about_button);
+    ui->about_button = control_button("ABOUT", NULL);
+    gtk_header_bar_pack_end(GTK_HEADER_BAR(chrome), ui->about_button);
 
     gtk_box_append(GTK_BOX(header), identity);
-    {
-        GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-        gtk_widget_set_hexpand(spacer, TRUE);
-        gtk_box_append(GTK_BOX(header), spacer);
-    }
-    gtk_box_append(GTK_BOX(header), header_tools);
 
     {
         GtkWidget *header_wrap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -973,34 +981,111 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
     gtk_box_append(GTK_BOX(body), column);
     gtk_window_set_child(GTK_WINDOW(ui->window), body);
 
-    ui->context_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_add_css_class(ui->context_row, "context-row");
-    ui->file_button = control_button("OPEN FILE", FALSE);
-    ui->file_label = gtk_label_new("NO FILE");
-    gtk_widget_add_css_class(ui->file_label, "fact-value");
-    gtk_label_set_ellipsize(GTK_LABEL(ui->file_label), PANGO_ELLIPSIZE_MIDDLE);
-    gtk_label_set_max_width_chars(GTK_LABEL(ui->file_label), 28);
-    gtk_label_set_xalign(GTK_LABEL(ui->file_label), 0.0f);
-    ui->speed_dropdown = make_dropdown(SPEED_ITEMS, 1);
-    gtk_widget_set_size_request(ui->speed_dropdown, 84, 28);
-    ui->speed_box = inline_field("SPEED", ui->speed_dropdown);
-    ui->pause_button = gtk_toggle_button_new_with_label("PAUSE");
-    ui->restart_button = control_button("RESTART", FALSE);
-    gtk_widget_add_css_class(ui->pause_button, "secondary-control");
-    ui->port_entry = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(ui->port_entry), "/dev/ttyUSB0");
-    gtk_widget_set_size_request(ui->port_entry, 180, 28);
-    ui->port_box = inline_field("PORT", ui->port_entry);
-    ui->banner = gtk_label_new("UNVERIFIED  19200 8E1  decoder off");
-    gtk_widget_add_css_class(ui->banner, "status-warning");
-    gtk_box_append(GTK_BOX(ui->context_row), ui->file_button);
-    gtk_box_append(GTK_BOX(ui->context_row), ui->file_label);
-    gtk_box_append(GTK_BOX(ui->context_row), ui->speed_box);
-    gtk_box_append(GTK_BOX(ui->context_row), ui->pause_button);
-    gtk_box_append(GTK_BOX(ui->context_row), ui->restart_button);
-    gtk_box_append(GTK_BOX(ui->context_row), ui->port_box);
-    gtk_box_append(GTK_BOX(ui->context_row), ui->banner);
-    gtk_box_append(GTK_BOX(column), ui->context_row);
+    {
+        GtkWidget *control_area = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+        GtkWidget *settings_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        GtkWidget *source_box;
+        GtkWidget *unavailable_name;
+        GtkWidget *unavailable_detail;
+
+        gtk_widget_add_css_class(control_area, "control-area");
+        gtk_widget_set_valign(settings_row, GTK_ALIGN_CENTER);
+        ui->action_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        gtk_widget_set_valign(ui->action_row, GTK_ALIGN_CENTER);
+
+        ui->source_dropdown = make_dropdown(SOURCE_ITEMS, 0);
+        gtk_widget_set_size_request(ui->source_dropdown, 148, 28);
+        source_box = inline_field("SOURCE", ui->source_dropdown);
+        gtk_widget_set_tooltip_text(ui->source_dropdown, "Choose where measurements come from.");
+
+        ui->scenario_dropdown = make_dropdown(SCENARIO_ITEMS, 0);
+        gtk_widget_set_size_request(ui->scenario_dropdown, 188, 28);
+        ui->scenario_box = inline_field("SIMULATION", ui->scenario_dropdown);
+        gtk_widget_set_margin_start(ui->scenario_box, 16);
+        gtk_widget_set_tooltip_text(ui->scenario_dropdown,
+                                    "Choose how the simulator changes T1 and T2.");
+
+        ui->interval_dropdown = make_dropdown(INTERVAL_ITEMS, 1);
+        gtk_widget_set_size_request(ui->interval_dropdown, 96, 28);
+        ui->interval_box = inline_field("SAMPLE INTERVAL", ui->interval_dropdown);
+        gtk_widget_set_margin_start(ui->interval_box, 16);
+        gtk_widget_set_tooltip_text(ui->interval_dropdown, "Time between measurements.");
+
+        ui->file_button = control_button("OPEN REPLAY FILE", "file-action");
+        gtk_widget_set_margin_start(ui->file_button, 16);
+        gtk_widget_set_tooltip_text(ui->file_button,
+                                    "Load a previously recorded TMD-56 or CSV measurement file.");
+        ui->file_label = gtk_label_new("No replay file loaded");
+        gtk_widget_add_css_class(ui->file_label, "fact-value");
+        gtk_label_set_ellipsize(GTK_LABEL(ui->file_label), PANGO_ELLIPSIZE_END);
+        gtk_label_set_max_width_chars(GTK_LABEL(ui->file_label), 28);
+        gtk_label_set_xalign(GTK_LABEL(ui->file_label), 0.0f);
+        ui->file_box = inline_field("FILE", ui->file_label);
+        ui->speed_dropdown = make_dropdown(SPEED_ITEMS, 1);
+        gtk_widget_set_size_request(ui->speed_dropdown, 84, 28);
+        ui->speed_box = inline_field("PLAYBACK SPEED", ui->speed_dropdown);
+        gtk_widget_set_margin_start(ui->speed_box, 16);
+        gtk_widget_set_tooltip_text(ui->speed_dropdown, "How fast the replay file is played.");
+
+        ui->banner = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+        gtk_widget_set_margin_start(ui->banner, 16);
+        unavailable_name = gtk_label_new("TMD-56");
+        unavailable_detail = gtk_label_new("Hardware support not available in v0.1.0");
+        gtk_widget_add_css_class(unavailable_name, "unavailable-name");
+        gtk_widget_add_css_class(unavailable_detail, "unavailable-detail");
+        gtk_widget_set_halign(unavailable_name, GTK_ALIGN_START);
+        gtk_widget_set_halign(unavailable_detail, GTK_ALIGN_START);
+        gtk_box_append(GTK_BOX(ui->banner), unavailable_name);
+        gtk_box_append(GTK_BOX(ui->banner), unavailable_detail);
+
+        gtk_box_append(GTK_BOX(settings_row), source_box);
+        gtk_box_append(GTK_BOX(settings_row), ui->scenario_box);
+        gtk_box_append(GTK_BOX(settings_row), ui->interval_box);
+        gtk_box_append(GTK_BOX(settings_row), ui->file_button);
+        gtk_box_append(GTK_BOX(settings_row), ui->file_box);
+        gtk_box_append(GTK_BOX(settings_row), ui->speed_box);
+        gtk_box_append(GTK_BOX(settings_row), ui->banner);
+
+        ui->start_button = control_button("START ACQUISITION", "acquire-action");
+        ui->stop_button = control_button("STOP ACQUISITION", "acquire-action");
+        gtk_widget_set_tooltip_text(ui->start_button,
+                                    "Begin reading measurements from the selected source.");
+        gtk_widget_set_tooltip_text(ui->stop_button, "Stop reading measurements.");
+
+        ui->session_entry = gtk_entry_new();
+        gtk_entry_set_placeholder_text(GTK_ENTRY(ui->session_entry), "Enter session name");
+        gtk_widget_set_size_request(ui->session_entry, 180, 28);
+        gtk_widget_set_tooltip_text(ui->session_entry, "Name used for the CSV file.");
+        ui->session_box = inline_field("SESSION NAME", ui->session_entry);
+        gtk_widget_set_margin_start(ui->session_box, 20);
+        ui->session_hint = gtk_label_new("");
+        gtk_widget_add_css_class(ui->session_hint, "inline-hint");
+        gtk_widget_set_halign(ui->session_hint, GTK_ALIGN_START);
+        gtk_label_set_ellipsize(GTK_LABEL(ui->session_hint), PANGO_ELLIPSIZE_END);
+        gtk_label_set_max_width_chars(GTK_LABEL(ui->session_hint), 42);
+        gtk_widget_set_visible(ui->session_hint, FALSE);
+
+        ui->log_button = control_button("START LOGGING", "log-action");
+        ui->play_button = control_button("PLAY", "replay-action");
+        ui->pause_button = control_button("PAUSE", "replay-action");
+        ui->restart_button = control_button("RESTART", "replay-action");
+        gtk_widget_set_tooltip_text(ui->play_button, "Play the loaded replay file.");
+        gtk_widget_set_tooltip_text(ui->pause_button, "Pause replay.");
+        gtk_widget_set_tooltip_text(ui->restart_button, "Return replay to the first sample.");
+
+        gtk_box_append(GTK_BOX(ui->action_row), ui->start_button);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->stop_button);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->play_button);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->pause_button);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->restart_button);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->session_box);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->log_button);
+        gtk_box_append(GTK_BOX(ui->action_row), ui->session_hint);
+
+        gtk_box_append(GTK_BOX(control_area), settings_row);
+        gtk_box_append(GTK_BOX(control_area), ui->action_row);
+        gtk_box_append(GTK_BOX(column), control_area);
+    }
 
     display = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_widget_add_css_class(display, "measurement-display");
@@ -1053,8 +1138,9 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
         gtk_box_append(GTK_BOX(view_group), ui->view_buttons[view]);
     }
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ui->view_buttons[1]), TRUE);
+    gtk_widget_set_tooltip_text(view_group, "Amount of recent history shown on the graph.");
     gtk_box_append(GTK_BOX(plot_bar), plot_title);
-    gtk_box_append(GTK_BOX(plot_bar), inline_field("VIEW", view_group));
+    gtk_box_append(GTK_BOX(plot_bar), inline_field("DISPLAY RANGE", view_group));
     ui->drawing = gtk_drawing_area_new();
     gtk_widget_add_css_class(ui->drawing, "plot-canvas");
     gtk_widget_set_vexpand(ui->drawing, TRUE);
@@ -1067,47 +1153,31 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
 
     facts = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
     gtk_widget_add_css_class(facts, "fact-strip");
-    ui->session_entry = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(ui->session_entry), "Session name");
-    gtk_widget_set_size_request(ui->session_entry, 200, 28);
     ui->elapsed_value = gtk_label_new("00:00:00");
     ui->samples_value = gtk_label_new("0");
-    ui->interval_value = gtk_label_new("500 ms");
     gtk_widget_add_css_class(ui->elapsed_value, "fact-value");
     gtk_widget_add_css_class(ui->samples_value, "fact-value");
-    gtk_widget_add_css_class(ui->interval_value, "fact-value");
-    gtk_box_append(GTK_BOX(facts), fact_column("SESSION", ui->session_entry));
     gtk_box_append(GTK_BOX(facts), fact_column("ELAPSED", ui->elapsed_value));
     gtk_box_append(GTK_BOX(facts), fact_column("SAMPLES", ui->samples_value));
-    gtk_box_append(GTK_BOX(facts), fact_column("INTERVAL", ui->interval_value));
-    gtk_box_append(GTK_BOX(column), facts);
-
-    controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_add_css_class(controls, "control-strip");
-    ui->start_button = control_button("START", TRUE);
-    ui->stop_button = control_button("STOP", FALSE);
-    ui->log_start = control_button("START LOGGING", TRUE);
-    ui->log_stop = control_button("STOP LOGGING", FALSE);
-    ui->spike_check = gtk_check_button_new_with_label("EXCLUDE SPIKES");
-    threshold = gtk_adjustment_new(TMD_DEFAULT_SPIKE_THRESHOLD_C, 0.5, 500.0, 0.5, 5.0, 0.0);
-    ui->spike_spin = gtk_spin_button_new(threshold, 0.5, 1);
-    gtk_widget_set_size_request(ui->spike_spin, 88, 28);
-    gtk_box_append(GTK_BOX(controls), ui->start_button);
-    gtk_box_append(GTK_BOX(controls), ui->stop_button);
-    gtk_box_append(GTK_BOX(controls), ui->log_start);
-    gtk_box_append(GTK_BOX(controls), ui->log_stop);
     {
         GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
         gtk_widget_set_hexpand(spacer, TRUE);
-        gtk_box_append(GTK_BOX(controls), spacer);
+        gtk_box_append(GTK_BOX(facts), spacer);
     }
-    gtk_box_append(GTK_BOX(controls), ui->spike_check);
-    gtk_box_append(GTK_BOX(controls), inline_field("°C", ui->spike_spin));
-    gtk_box_append(GTK_BOX(column), controls);
+    ui->spike_check = gtk_check_button_new_with_label("EXCLUDE SPIKES");
+    threshold = gtk_adjustment_new(TMD_DEFAULT_SPIKE_THRESHOLD_C, 0.5, 500.0, 0.5, 5.0, 0.0);
+    ui->spike_spin = gtk_spin_button_new(threshold, 0.5, 1);
+    gtk_widget_set_size_request(ui->spike_spin, 72, 28);
+    ui->spike_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_valign(ui->spike_box, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(ui->spike_box), ui->spike_check);
+    gtk_box_append(GTK_BOX(ui->spike_box), inline_field("°C", ui->spike_spin));
+    gtk_box_append(GTK_BOX(facts), ui->spike_box);
+    gtk_box_append(GTK_BOX(column), facts);
 
     status = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_add_css_class(status, "status-bar");
-    ui->state_label = gtk_label_new("● IDLE    SOURCE SIMULATOR    0 SAMPLES    500 ms");
+    ui->state_label = gtk_label_new("● IDLE    SOURCE SIMULATOR");
     gtk_widget_add_css_class(ui->state_label, "status-offline");
     gtk_widget_set_hexpand(ui->state_label, TRUE);
     gtk_widget_set_valign(ui->state_label, GTK_ALIGN_CENTER);
@@ -1118,12 +1188,9 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
 
     gtk_widget_set_tooltip_text(
         ui->spike_check,
-        "A sample is suspicious when the absolute change from the last accepted "
-        "temperature exceeds the threshold. Raw logged values are never replaced.");
-    gtk_widget_set_tooltip_text(
-        ui->start_button,
-        "Simulator and replay start acquisition. TMD-56 only opens the serial port; "
-        "it does not decode temperatures.");
+        "Hide samples whose temperature jumps by more than the threshold. "
+        "Logged values are not changed.");
+    gtk_widget_set_tooltip_text(ui->spike_spin, "Spike threshold in degrees Celsius.");
 
     g_signal_connect(ui->source_dropdown, "notify::selected", G_CALLBACK(on_source_changed), ui);
     g_signal_connect(ui->scenario_dropdown, "notify::selected", G_CALLBACK(on_scenario_changed), ui);
@@ -1132,15 +1199,14 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
     for (view = 0; view < 6; view++) {
         g_signal_connect(ui->view_buttons[view], "toggled", G_CALLBACK(on_view_toggled), ui);
     }
-    g_signal_connect(ui->port_entry, "changed", G_CALLBACK(on_port_changed), ui);
     g_signal_connect(ui->start_button, "clicked", G_CALLBACK(on_start), ui);
     g_signal_connect(ui->stop_button, "clicked", G_CALLBACK(on_stop), ui);
-    g_signal_connect(ui->pause_button, "toggled", G_CALLBACK(on_pause), ui);
+    g_signal_connect(ui->play_button, "clicked", G_CALLBACK(on_play), ui);
+    g_signal_connect(ui->pause_button, "clicked", G_CALLBACK(on_pause), ui);
     g_signal_connect(ui->restart_button, "clicked", G_CALLBACK(on_restart), ui);
     g_signal_connect(ui->file_button, "clicked", G_CALLBACK(on_open_file), ui);
     g_signal_connect(ui->session_entry, "changed", G_CALLBACK(on_session_changed), ui);
-    g_signal_connect(ui->log_start, "clicked", G_CALLBACK(on_log_start), ui);
-    g_signal_connect(ui->log_stop, "clicked", G_CALLBACK(on_log_stop), ui);
+    g_signal_connect(ui->log_button, "clicked", G_CALLBACK(on_log_clicked), ui);
     g_signal_connect(ui->spike_check, "toggled", G_CALLBACK(on_spike_toggled), ui);
     g_signal_connect(ui->spike_spin, "value-changed", G_CALLBACK(on_threshold_changed), ui);
     g_signal_connect(ui->about_button, "clicked", G_CALLBACK(on_about), ui);
@@ -1155,6 +1221,7 @@ static void on_activate(GtkApplication *gtk_app, gpointer user_data)
         ui->timer_id = g_timeout_add(100, on_tick, ui);
     }
     gtk_window_present(GTK_WINDOW(ui->window));
+    gtk_widget_grab_focus(ui->source_dropdown);
 }
 
 int main_window_run(App *app, int argc, char **argv)

@@ -253,9 +253,29 @@ window.amprobe-shell .fact-label {
   font-feature-settings: "tnum" 1;
 }
 
-.control-strip {
+.control-area {
   background-color: @tmd_graphite;
-  padding: 0 12px 8px 12px;
+  padding: 8px 12px 8px 12px;
+  border-bottom: 1px solid @tmd_border;
+}
+
+.inline-hint {
+  color: @tmd_yellow;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.unavailable-name {
+  color: @tmd_text;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.unavailable-detail {
+  color: @tmd_yellow;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .status-bar {
@@ -318,8 +338,8 @@ window.amprobe-shell dropdown > button:hover {
 window.amprobe-shell dropdown:disabled,
 window.amprobe-shell dropdown:disabled > button,
 window.amprobe-shell dropdown:disabled label {
-  color: #6e737a;
-  background-color: @tmd_graphite;
+  color: #4e5258;
+  background-color: #121316;
 }
 
 window.amprobe-shell dropdown label,
@@ -345,12 +365,17 @@ window.amprobe-shell entry:focus {
 }
 
 window.amprobe-shell entry:disabled {
-  color: #6e737a;
-  background-color: @tmd_graphite;
+  color: #4e5258;
+  background-color: #121316;
+  border-color: #2a2c30;
+}
+
+window.amprobe-shell entry.entry-invalid {
+  border-color: @tmd_yellow;
 }
 
 window.amprobe-shell entry placeholder {
-  color: #6e737a;
+  color: #8b9096;
 }
 
 window.amprobe-shell spinbutton {
@@ -414,7 +439,7 @@ window.amprobe-shell checkbutton check:checked {
 }
 
 window.amprobe-shell checkbutton:disabled label {
-  color: #6e737a;
+  color: #4e5258;
 }
 
 window.amprobe-shell checkbutton check:disabled {
@@ -448,12 +473,12 @@ button.primary-control:active {
 }
 
 button.primary-control:disabled {
-  background-color: @tmd_control;
-  border-color: @tmd_control;
+  background-color: #121316;
+  border-color: #2a2c30;
 }
 
 button.primary-control:disabled label {
-  color: #6e737a;
+  color: #4e5258;
 }
 
 button.secondary-control {
@@ -483,12 +508,28 @@ button.secondary-control:active {
 }
 
 button.secondary-control:disabled {
-  background-color: @tmd_graphite;
-  border-color: @tmd_border;
+  background-color: #121316;
+  border-color: #2a2c30;
 }
 
 button.secondary-control:disabled label {
-  color: #6e737a;
+  color: #4e5258;
+}
+
+button.acquire-action {
+  min-width: 176px;
+}
+
+button.log-action {
+  min-width: 148px;
+}
+
+button.replay-action {
+  min-width: 88px;
+}
+
+button.file-action {
+  min-width: 168px;
 }
 
 button.secondary-control:checked {
