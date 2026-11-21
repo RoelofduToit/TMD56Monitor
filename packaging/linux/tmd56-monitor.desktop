@@ -2,7 +2,7 @@
 Type=Application
 Name=TMD-56 Temperature Logger
 GenericName=Temperature Logger
-Comment=Dual-input temperature logger for simulation and replay
+Comment=Dual-input temperature logger
 Exec=tmd56-monitor
 Icon=tmd56-monitor
 Terminal=false

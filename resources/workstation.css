@@ -1,0 +1,84 @@
+/* Native desktop refinements, layered over the preserved design resources.
+ * Reserve monospace for measurements; use the system face for navigation.
+ * Channel colours belong to the data, red to the primary action.
+ */
+window.amprobe-shell { font-family: "Noto Sans", sans-serif; }
+window.amprobe-shell .brand-rail { background: @tmd_red; min-width: 2px; }
+window.amprobe-shell .instrument-header { padding: 8px 14px; }
+window.amprobe-shell .product-mark {
+  font-family: "Noto Sans", sans-serif;
+  font-size: 21px;
+  font-weight: 600;
+}
+window.amprobe-shell .product-line,
+window.amprobe-shell .instrument-section-title,
+window.amprobe-shell .field-label,
+window.amprobe-shell .fact-label {
+  font-family: "Noto Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+window.amprobe-shell .instrument-section-title { font-weight: 600; }
+window.amprobe-shell .control-area { padding: 10px 16px; }
+window.amprobe-shell .measurement-display {
+  border-radius: 4px;
+  padding: 10px;
+}
+window.amprobe-shell .measurement-display .path-label {
+  font-family: "Noto Sans", sans-serif;
+  font-size: 11px;
+  color: @tmd_lcd_dim;
+  padding-bottom: 4px;
+}
+window.amprobe-shell .measurement-name { font-weight: 600; }
+window.amprobe-shell .measurement-display .stat-value { font-size: 11px; }
+window.amprobe-shell .measurement-unit { font-weight: 400; }
+window.amprobe-shell .plot-container { border-radius: 4px; padding: 10px; }
+window.amprobe-shell .plot-toolbar { padding-bottom: 8px; }
+window.amprobe-shell .plot-container .view-group {
+  border-color: @tmd_grid;
+  border-radius: 3px;
+}
+window.amprobe-shell .plot-container button.view-option:hover { background: alpha(@tmd_grid, 0.55); }
+window.amprobe-shell .plot-container button.view-option:checked { background: @tmd_grid; }
+window.amprobe-shell .plot-container button.secondary-control {
+  background: transparent;
+  border-color: @tmd_grid;
+}
+window.amprobe-shell .plot-container button.secondary-control label { color: @tmd_axis; }
+window.amprobe-shell .plot-container button.secondary-control:hover { background: @tmd_grid; }
+window.amprobe-shell .session-panel { padding: 14px 16px; }
+window.amprobe-shell .fact-strip .fact-value { font-size: 21px; }
+window.amprobe-shell .status-bar label { font-weight: 400; }
+window.amprobe-shell button.primary-control,
+window.amprobe-shell button.secondary-control,
+window.amprobe-shell menubutton > button,
+window.amprobe-shell dropdown,
+window.amprobe-shell dropdown > button,
+window.amprobe-shell entry,
+window.amprobe-shell spinbutton { border-radius: 4px; }
+window.amprobe-shell button.primary-control label,
+window.amprobe-shell button.secondary-control label { font-weight: 500; }
+window.amprobe-shell button.primary-control:hover { background: #de4e3a; }
+window.amprobe-shell button.primary-control:active { background: @tmd_red_dark; }
+window.amprobe-shell button.primary-control:disabled,
+window.amprobe-shell button.primary-control:disabled:hover,
+window.amprobe-shell button.secondary-control:disabled,
+window.amprobe-shell button.secondary-control:disabled:hover {
+  background: #1d1d1a;
+  border-color: #44443d;
+}
+window.amprobe-shell button.primary-control:disabled label,
+window.amprobe-shell button.secondary-control:disabled label { color: #aaa99a; }
+window.amprobe-shell button:focus-visible,
+window.amprobe-shell entry:focus-visible,
+window.amprobe-shell dropdown:focus-visible > button,
+window.amprobe-shell spinbutton:focus-visible,
+window.amprobe-shell checkbutton:focus-visible check,
+window.amprobe-shell expander:focus-visible {
+  outline: 2px solid @tmd_yellow;
+  outline-offset: 2px;
+}
+window.amprobe-shell .plot-container button:focus-visible,
+window.amprobe-shell .plot-container checkbutton:focus-visible check { outline-color: @tmd_cyan; }

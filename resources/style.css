@@ -1,3 +1,5 @@
+@import url("resource:///com/tmd56/Monitor/design-tokens.css");
+
 /*
  * TMD-56 Temperature Logger
  *
@@ -9,24 +11,6 @@
  * Yellow is only a secondary-function accent.
  */
 
-@define-color tmd_red #D71920;
-@define-color tmd_red_dark #A80F16;
-@define-color tmd_black #161719;
-@define-color tmd_graphite #202225;
-@define-color tmd_panel #292C30;
-@define-color tmd_control #373A3F;
-@define-color tmd_border #45484D;
-@define-color tmd_muted #A9ADB3;
-@define-color tmd_text #F2F3F4;
-@define-color tmd_lcd #C8CBC4;
-@define-color tmd_lcd_ink #161719;
-@define-color tmd_lcd_dim #3A3D38;
-@define-color tmd_yellow #E5B72F;
-@define-color tmd_green #3FA36A;
-@define-color tmd_cyan #3CB4D6;
-@define-color tmd_plot #161719;
-@define-color tmd_grid #373A3F;
-@define-color tmd_axis #A9ADB3;
 
 window.amprobe-shell {
   background-color: @tmd_black;
@@ -107,10 +91,20 @@ window.amprobe-shell .product-line {
 
 window.amprobe-shell .instrument-section-title,
 window.amprobe-shell .field-label {
-  color: @tmd_muted;
-  font-size: 10px;
+  color: #d5d8dc;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
+}
+
+.simulation-badge {
+  color: #161719;
+  background-color: @tmd_yellow;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
 }
 
 .context-row {
@@ -158,7 +152,7 @@ window.amprobe-shell .measurement-unit {
 
 .lcd-stats {
   border-top: 1px solid #a7aba4;
-  padding: 4px 16px 6px 16px;
+  padding: 6px 0 8px 0;
 }
 
 window.amprobe-shell .stat-label,
@@ -331,6 +325,15 @@ window.amprobe-shell dropdown > button {
   min-height: 26px;
 }
 
+window.amprobe-shell dropdown arrow,
+window.amprobe-shell dropdown > button image {
+  color: #f2f3f4;
+  opacity: 1;
+  min-width: 14px;
+  min-height: 14px;
+  -gtk-icon-size: 14px;
+}
+
 window.amprobe-shell dropdown > button:hover {
   background-color: @tmd_control;
 }
@@ -338,8 +341,14 @@ window.amprobe-shell dropdown > button:hover {
 window.amprobe-shell dropdown:disabled,
 window.amprobe-shell dropdown:disabled > button,
 window.amprobe-shell dropdown:disabled label {
-  color: #4e5258;
-  background-color: #121316;
+  color: #9aa0a6;
+  background-color: #16181b;
+}
+
+window.amprobe-shell dropdown:disabled arrow,
+window.amprobe-shell dropdown:disabled > button image {
+  color: #9aa0a6;
+  opacity: 1;
 }
 
 window.amprobe-shell dropdown label,
@@ -365,9 +374,9 @@ window.amprobe-shell entry:focus {
 }
 
 window.amprobe-shell entry:disabled {
-  color: #4e5258;
-  background-color: #121316;
-  border-color: #2a2c30;
+  color: #9aa0a6;
+  background-color: #16181b;
+  border-color: #3a3d42;
 }
 
 window.amprobe-shell entry.entry-invalid {
@@ -397,54 +406,91 @@ window.amprobe-shell spinbutton text {
 }
 
 window.amprobe-shell spinbutton button {
-  background-color: @tmd_control;
-  color: @tmd_text;
-  border: none;
+  background-color: #45484d;
+  color: #f2f3f4;
+  border-left: 1px solid #5c6066;
   box-shadow: none;
-  min-width: 20px;
+  min-width: 22px;
   min-height: 24px;
   border-radius: 0;
 }
 
-window.amprobe-shell spinbutton button label {
-  color: @tmd_text;
-  font-size: 12px;
+window.amprobe-shell spinbutton button:hover {
+  background-color: #5c6066;
+}
+
+window.amprobe-shell spinbutton button label,
+window.amprobe-shell spinbutton button image {
+  color: #f2f3f4;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 window.amprobe-shell spinbutton:disabled,
 window.amprobe-shell spinbutton:disabled entry,
 window.amprobe-shell spinbutton:disabled text {
-  color: #6e737a;
-  background-color: @tmd_graphite;
+  color: #9aa0a6;
+  background-color: #16181b;
+}
+
+window.amprobe-shell spinbutton:disabled button,
+window.amprobe-shell spinbutton:disabled button label,
+window.amprobe-shell spinbutton:disabled button image {
+  color: #9aa0a6;
+  background-color: #2a2c30;
+  border-color: #3a3d42;
 }
 
 window.amprobe-shell checkbutton label {
-  color: @tmd_muted;
+  color: #d5d8dc;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.4px;
 }
 
-window.amprobe-shell checkbutton check {
-  border: 1px solid @tmd_border;
+window.amprobe-shell checkbutton check,
+window.amprobe-shell checkbutton radio {
+  border: 1px solid #d5d8dc;
   border-radius: 2px;
-  background-color: @tmd_panel;
-  min-width: 14px;
-  min-height: 14px;
+  background-color: #202225;
+  color: #161719;
+  min-width: 16px;
+  min-height: 16px;
 }
 
-window.amprobe-shell checkbutton check:checked {
+window.amprobe-shell checkbutton radio {
+  border-radius: 999px;
+}
+
+window.amprobe-shell checkbutton check:hover,
+window.amprobe-shell checkbutton radio:hover {
+  border-color: #f2f3f4;
+  background-color: #373a3f;
+}
+
+window.amprobe-shell checkbutton check:checked,
+window.amprobe-shell checkbutton radio:checked {
   background-color: @tmd_yellow;
   border-color: @tmd_yellow;
+  color: #161719;
 }
 
 window.amprobe-shell checkbutton:disabled label {
-  color: #4e5258;
+  color: #9aa0a6;
 }
 
-window.amprobe-shell checkbutton check:disabled {
-  background-color: @tmd_graphite;
-  border-color: @tmd_border;
+window.amprobe-shell checkbutton check:disabled,
+window.amprobe-shell checkbutton radio:disabled {
+  background-color: #16181b;
+  border-color: #6e737a;
+  color: #9aa0a6;
+}
+
+window.amprobe-shell checkbutton check:checked:disabled,
+window.amprobe-shell checkbutton radio:checked:disabled {
+  background-color: #6e5a28;
+  border-color: #8d7340;
+  color: #d5d8dc;
 }
 
 button.primary-control {
@@ -478,7 +524,7 @@ button.primary-control:disabled {
 }
 
 button.primary-control:disabled label {
-  color: #4e5258;
+  color: #9aa0a6;
 }
 
 button.secondary-control {
@@ -513,7 +559,7 @@ button.secondary-control:disabled {
 }
 
 button.secondary-control:disabled label {
-  color: #4e5258;
+  color: #9aa0a6;
 }
 
 button.acquire-action {
@@ -542,9 +588,22 @@ button.secondary-control:focus-visible,
 button.view-option:focus-visible,
 entry:focus-visible,
 dropdown:focus-visible,
-spinbutton:focus-visible {
-  outline: 1px solid @tmd_yellow;
+dropdown:focus-visible > button,
+spinbutton:focus-visible,
+checkbutton:focus-visible check,
+checkbutton:focus-visible radio {
+  outline: 2px solid @tmd_yellow;
   outline-offset: 1px;
+}
+
+popover modelbutton {
+  color: @tmd_text;
+  padding: 6px 12px;
+  border-radius: 4px;
+}
+
+popover modelbutton:hover {
+  background-color: @tmd_control;
 }
 
 popover,
@@ -569,3 +628,132 @@ popover listview row:selected {
   background-color: @tmd_red_dark;
   color: @tmd_text;
 }
+
+/*
+ * One face for the whole window. Interface text is 13 px Inter.
+ * The product name is 16 px. The three readings are 40 px.
+ */
+window.amprobe-shell label,
+window.amprobe-shell entry,
+window.amprobe-shell spinbutton,
+window.amprobe-shell dropdown,
+window.amprobe-shell dropdown label,
+window.amprobe-shell dropdown > button label,
+window.amprobe-shell .product-line,
+window.amprobe-shell .field-label,
+window.amprobe-shell .instrument-section-title,
+window.amprobe-shell .measurement-name,
+window.amprobe-shell .measurement-unit,
+window.amprobe-shell .stat-value,
+window.amprobe-shell .spike-mark,
+window.amprobe-shell .fact-label,
+window.amprobe-shell .fact-value,
+window.amprobe-shell .inline-hint,
+window.amprobe-shell .unavailable-name,
+window.amprobe-shell .unavailable-detail,
+window.amprobe-shell .simulation-badge,
+window.amprobe-shell .status-bar label,
+window.amprobe-shell checkbutton label,
+button.primary-control label,
+button.secondary-control label,
+button.view-option label,
+popover,
+popover label,
+popover modelbutton {
+  font-family: "Inter", "Noto Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+window.amprobe-shell .product-mark {
+  font-family: "Inter", "Noto Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+window.amprobe-shell .measurement-number {
+  font-family: "Inter", "Noto Sans", sans-serif;
+  font-size: 40px;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+window.amprobe-shell .field-label,
+window.amprobe-shell .instrument-section-title,
+window.amprobe-shell .measurement-name,
+window.amprobe-shell .fact-label,
+window.amprobe-shell checkbutton label,
+window.amprobe-shell .simulation-badge,
+window.amprobe-shell .spike-mark,
+button.primary-control label,
+button.secondary-control label,
+button.view-option label {
+  font-weight: 600;
+}
+
+window.amprobe-shell .stat-value,
+window.amprobe-shell .fact-value,
+window.amprobe-shell spinbutton entry,
+window.amprobe-shell spinbutton text {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Laboratory workstation palette and hierarchy. */
+
+.brand-rail { min-width: 3px; background: #3478ce; }
+.instrument-header { padding: 10px 14px; border: none; }
+.control-area { padding: 12px 16px; }
+.measurement-display { background: @tmd_graphite; border-color: @tmd_border; border-radius: 10px; }
+.measurement-channel { padding: 16px 18px 10px; }
+.measurement-channel.with-rule { border-left-color: @tmd_border; }
+window.amprobe-shell .measurement-name { color: @tmd_muted; font-size: 11px; }
+window.amprobe-shell .measurement-number { color: @tmd_t1; font-size: 42px; font-family: "DejaVu Sans Mono", monospace; }
+window.amprobe-shell .measurement-channel:nth-child(2) .measurement-number { color: @tmd_cyan; }
+window.amprobe-shell .measurement-channel:nth-child(3) .measurement-number { color: @tmd_yellow; }
+window.amprobe-shell .measurement-unit { color: @tmd_muted; }
+.lcd-stats { border-top-color: @tmd_border; padding: 10px 0; }
+window.amprobe-shell .stat-value { color: @tmd_muted; font-size: 11px; }
+.plot-container { padding: 12px; border-radius: 10px; }
+.plot-toolbar { padding-bottom: 10px; }
+.session-panel { background: @tmd_graphite; padding: 18px; border-left: 1px solid @tmd_border; }
+.fact-strip { border-top: none; padding: 0; }
+window.amprobe-shell .fact-label { color: @tmd_muted; font-size: 11px; }
+window.amprobe-shell .fact-value { font-size: 18px; }
+window.amprobe-shell .path-label { color: @tmd_muted; font-size: 12px; }
+window.amprobe-shell .trace-t1 label { color: @tmd_t1; }
+window.amprobe-shell .trace-t2 label { color: @tmd_cyan; }
+window.amprobe-shell .trace-delta label { color: @tmd_yellow; }
+window.amprobe-shell .connection-label { margin-right: 18px; }
+button.acquire-action { min-width: 130px; }
+button.log-action { min-width: 130px; }
+button.primary-control, button.secondary-control { min-height: 32px; border-radius: 6px; }
+window.amprobe-shell entry, window.amprobe-shell dropdown, window.amprobe-shell spinbutton { min-height: 32px; border-radius: 6px; }
+window.amprobe-shell .status-recording { color: #f2ab67; }
+window.amprobe-shell .simulation-badge { color: #151b23; background: #edc26c; }
+window.amprobe-shell checkbutton check:checked, window.amprobe-shell checkbutton radio:checked { background: #60cbe8; border-color: #60cbe8; }
+window.amprobe-shell .product-mark { font-size: 20px; }
+window.amprobe-shell .product-line { color: @tmd_muted; font-size: 12px; }
+window.amprobe-shell .field-label { color: @tmd_muted; font-size: 11px; }
+
+/* Clear theme-provided images, which otherwise mask dark control fills. */
+window.amprobe-shell headerbar.chrome,
+window.amprobe-shell button,
+window.amprobe-shell dropdown,
+window.amprobe-shell spinbutton,
+window.amprobe-shell entry,
+window.amprobe-shell checkbutton check,
+window.amprobe-shell checkbutton radio { background-image: none; }
+window.amprobe-shell headerbar.chrome { background-color: @tmd_graphite; }
+window.amprobe-shell button.primary-control { background-color: @tmd_red; }
+window.amprobe-shell button.secondary-control,
+window.amprobe-shell menubutton > button { background-color: @tmd_panel; color: @tmd_text; }
+window.amprobe-shell button.primary-control:disabled,
+window.amprobe-shell button.secondary-control:disabled { background-color: #151d28; }
+window.amprobe-shell button.primary-control:hover { background-color: #4088de; }
+window.amprobe-shell button.secondary-control:hover,
+window.amprobe-shell menubutton > button:hover { background-color: @tmd_control; }
+window.amprobe-shell flowboxchild { padding: 0; }
+window.amprobe-shell menubutton > button { border: 1px solid @tmd_border; border-radius: 6px; min-height: 32px; }

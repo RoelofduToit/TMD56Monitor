@@ -183,16 +183,18 @@ void stats_accumulate(MeasurementStats *stats, const TemperatureMeasurement *sam
 {
     stats->latest = *sample;
     stats->have_latest = true;
-    if (!sample->valid) {
-        return;
-    }
     if (ignore_suspicious && sample->suspicious) {
         return;
     }
-    accumulate_channel(&stats->have_t1, &stats->t1_min, &stats->t1_max,
-                       &stats->t1_sum, &stats->t1_count, sample->t1);
-    accumulate_channel(&stats->have_t2, &stats->t2_min, &stats->t2_max,
-                       &stats->t2_sum, &stats->t2_count, sample->t2);
+    /* Each probe is counted on its own, so an open channel does not drop the other. */
+    if (isfinite(sample->t1)) {
+        accumulate_channel(&stats->have_t1, &stats->t1_min, &stats->t1_max,
+                           &stats->t1_sum, &stats->t1_count, sample->t1);
+    }
+    if (isfinite(sample->t2)) {
+        accumulate_channel(&stats->have_t2, &stats->t2_min, &stats->t2_max,
+                           &stats->t2_sum, &stats->t2_count, sample->t2);
+    }
 }
 
 #if defined(_WIN32)

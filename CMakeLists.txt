@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(TMD56Monitor VERSION 0.1.1 LANGUAGES C)
+project(TMD56Monitor VERSION 0.2.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -32,6 +32,9 @@ add_custom_command(
     DEPENDS
         ${CMAKE_SOURCE_DIR}/resources/resources.gresource.xml
         ${CMAKE_SOURCE_DIR}/resources/style.css
+        ${CMAKE_SOURCE_DIR}/resources/design-tokens.css
+        ${CMAKE_SOURCE_DIR}/resources/figcraft-components.css
+        ${CMAKE_SOURCE_DIR}/resources/workstation.css
         ${CMAKE_SOURCE_DIR}/resources/icons/tmd56-monitor.svg
         ${CMAKE_SOURCE_DIR}/resources/icons/tmd56-monitor-128.png
     VERBATIM
@@ -69,6 +72,7 @@ add_executable(tmd56-monitor
     src/sources/replay_source.c
     src/sources/tmd56_source.c
     src/ui/main_window.c
+    src/ui/toolbar_mode.c
     src/ui/live_plot.c
     ${TMD_RESOURCE_C}
 )
@@ -84,6 +88,7 @@ if(NOT WIN32)
     target_link_libraries(tmd56-monitor PRIVATE m)
 endif()
 if(WIN32)
+    enable_language(RC)
     set(TMD_ICON_PATH "${CMAKE_SOURCE_DIR}/resources/icons/tmd56-monitor.ico")
     string(REPLACE "\\" "/" TMD_ICON_PATH "${TMD_ICON_PATH}")
     configure_file(
@@ -112,12 +117,12 @@ if(NOT tmd_bundle_rc EQUAL 0)
 endif()
 ")
 else()
+    install(FILES resources/icons/tmd56-monitor.svg
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
     install(FILES packaging/linux/tmd56-monitor.desktop
             DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
     install(FILES packaging/linux/com.tmd56.Monitor.metainfo.xml
             DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
-    install(FILES resources/icons/tmd56-monitor.svg
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
     foreach(size 16 22 24 32 48 64 128 256 512)
         install(FILES resources/icons/${size}x${size}/tmd56-monitor.png
                 DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps)
@@ -194,3 +199,54 @@ add_executable(test_user_paths
 tmd_apply_c_target(test_user_paths)
 target_link_libraries(test_user_paths PRIVATE PkgConfig::GLIB2)
 add_test(NAME user_paths COMMAND test_user_paths)
+
+add_executable(test_live_plot
+    tests/test_live_plot.c
+    src/ui/live_plot.c
+    src/history_buffer.c
+    src/measurement.c
+)
+tmd_apply_c_target(test_live_plot)
+target_link_libraries(test_live_plot PRIVATE PkgConfig::CAIRO)
+if(NOT WIN32)
+    target_link_libraries(test_live_plot PRIVATE m)
+endif()
+add_test(NAME live_plot COMMAND test_live_plot)
+
+add_executable(test_toolbar_mode
+    tests/test_toolbar_mode.c
+    src/ui/toolbar_mode.c
+)
+tmd_apply_c_target(test_toolbar_mode)
+if(NOT WIN32)
+    target_link_libraries(test_toolbar_mode PRIVATE m)
+endif()
+add_test(NAME toolbar_mode COMMAND test_toolbar_mode)
+
+add_executable(test_tmd56_frame
+    tests/test_tmd56_frame.c
+    src/sources/tmd56_source.c
+    src/measurement.c
+)
+tmd_apply_c_target(test_tmd56_frame)
+target_link_libraries(test_tmd56_frame PRIVATE PkgConfig::LIBSERIALPORT)
+if(NOT WIN32)
+    target_link_libraries(test_tmd56_frame PRIVATE m)
+endif()
+add_test(NAME tmd56_frame COMMAND test_tmd56_frame)
+
+# Runs on a real or virtual GTK display; headless CTest reports a skip.
+get_target_property(TMD_UI_TEST_SOURCES tmd56-monitor SOURCES)
+list(REMOVE_ITEM TMD_UI_TEST_SOURCES src/main.c src/self_test.c src/ui/main_window.c)
+if(WIN32)
+    list(FILTER TMD_UI_TEST_SOURCES EXCLUDE REGEX "[.]rc$")
+endif()
+add_executable(test_main_window tests/test_main_window.c ${TMD_UI_TEST_SOURCES})
+tmd_apply_c_target(test_main_window)
+target_compile_definitions(test_main_window PRIVATE TMD_EXAMPLE_PATH="${CMAKE_SOURCE_DIR}/examples/sample_tmd_export.txt")
+target_link_libraries(test_main_window PRIVATE PkgConfig::GTK4 PkgConfig::GLIB2 PkgConfig::CAIRO PkgConfig::LIBSERIALPORT)
+if(NOT WIN32)
+    target_link_libraries(test_main_window PRIVATE m)
+endif()
+add_test(NAME main_window COMMAND test_main_window)
+set_tests_properties(main_window PROPERTIES SKIP_RETURN_CODE 77)

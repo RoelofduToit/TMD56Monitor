@@ -1,0 +1,46 @@
+name: Linux v0.2.0 release
+
+on:
+  push:
+    branches: [release/linux-v0.2.0]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config \
+            libgtk-4-dev libcairo2-dev libserialport-dev libglib2.0-dev-bin \
+            xvfb xauth dbus-x11 desktop-file-utils
+      - name: Build and test the release candidate
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build --parallel
+          dbus-run-session -- xvfb-run -a ctest --test-dir build --output-on-failure --no-tests=error | tee test-results.txt
+          grep -Eq '100% tests passed, 0 tests failed out of 9' test-results.txt
+          if grep -q '\*\*\*Skipped' test-results.txt; then exit 1; fi
+      - name: Check the installed package outside the source checkout
+        run: |
+          cpack --config build/CPackConfig.cmake -G DEB -B dist
+          sudo apt-get install -y "$PWD/dist/TMD56Monitor_0.2.0_amd64.deb"
+          desktop-file-validate /usr/share/applications/tmd56-monitor.desktop
+          cd "$RUNNER_TEMP"
+          export TMD56_DATA_DIR="$RUNNER_TEMP/tmd56-test-data"
+          /usr/bin/tmd56-monitor --version | grep -F 0.2.0
+          /usr/bin/tmd56-monitor --self-test
+      - name: Generate checksum
+        working-directory: dist
+        run: sha256sum TMD56Monitor_0.2.0_amd64.deb > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: |
+            dist/TMD56Monitor_0.2.0_amd64.deb
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

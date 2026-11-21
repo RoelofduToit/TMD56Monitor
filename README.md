@@ -1,14 +1,16 @@
 # TMD-56 Temperature Logger
 
-Dual-input temperature logger for simulation and replay. This is not an official Amprobe product. The physical meter connection is still experimental and does not decode temperatures.
+Dual-input temperature logger for an Amprobe TMD-56, with a simulator and replay. This is not an official Amprobe product.
 
-The window title is **TMD-56 Temperature Logger**. The executable name is `tmd56-monitor`. Version 0.1.1 is shown in About.
+The window title is **TMD-56 Temperature Logger**. The executable name is `tmd56-monitor`. Version 0.2.0 is shown in About.
+
+Live serial acquisition is experimental. The decoder is covered by automated tests, and v0.2.0 has yet to be validated with a physical meter.
 
 ## For users
 
 You do not need a compiler, CMake, GTK, MSYS2, Python, or a terminal.
 
-### Windows 10 or 11 (64-bit)
+### Windows 10 or 11 (64-bit, v0.1.1)
 
 Download `TMD56Monitor-Setup-x64.exe` from the GitHub release and run it. The installer adds a Start menu shortcut named **TMD-56 Temperature Logger** and an uninstall entry. It installs under Program Files. After that, normal use does not need administrator rights.
 
@@ -18,16 +20,13 @@ Recordings are stored in `%LOCALAPPDATA%\TMD56Monitor\logs`. Uninstall does not 
 
 ### Linux
 
-Download `TMD56Monitor-x86_64.AppImage` from the GitHub release.
+Download `TMD56Monitor_0.2.0_amd64.deb` for Ubuntu 24.04 or Linux Mint 22 (64-bit). Open it with your package installer or run:
 
 ```bash
-chmod +x TMD56Monitor-x86_64.AppImage
-./TMD56Monitor-x86_64.AppImage
+sudo apt install ./TMD56Monitor_0.2.0_amd64.deb
 ```
 
-You can start it from any directory. The stylesheet is inside the application. Recordings go to `$XDG_DATA_HOME/TMD56Monitor/logs`, which is `~/.local/share/TMD56Monitor/logs` when `XDG_DATA_HOME` is unset.
-
-`TMD56Monitor_0.1.1_amd64.deb` is optional. That package uses the distribution's GTK and libserialport instead of bundling them, so it is not the standalone release. The AppImage is.
+Launch **TMD-56 Temperature Logger** from the application menu, or run `tmd56-monitor`. Recordings go to `$XDG_DATA_HOME/TMD56Monitor/logs`, defaulting to `~/.local/share/TMD56Monitor/logs`.
 
 ## For developers
 
@@ -83,7 +82,7 @@ tmd56-monitor --version
 tmd56-monitor --self-test
 ```
 
-`--version` prints `TMD-56 Temperature Logger 0.1.1`. `--self-test` checks the embedded stylesheet and icon, the log directory, the simulator, and the history buffer. It does not open a window and does not need the meter. Exit code 0 means every check passed.
+`--version` prints `TMD-56 Temperature Logger 0.2.0`. `--self-test` checks the embedded stylesheet and icon, the log directory, the simulator, the history buffer, and a known meter frame. It does not open a window and does not need the meter. Exit code 0 means every check passed.
 
 ### Packaging
 
@@ -106,7 +105,7 @@ Windows installer and portable zip are produced on a Windows runner by installin
 - `TMD56Monitor-Setup-x64.exe`
 - `TMD56Monitor-Windows-x64.zip`
 
-Pushing a tag such as `v0.1.1` runs `.github/workflows/release.yml` and attaches those files to the GitHub Release. There is no automatic updater.
+Pushing a tag such as `v0.2.0` runs `.github/workflows/release.yml` and attaches those files and checksums to a draft GitHub Release for review. There is no automatic updater.
 
 There is no automatic updater in this version. GitHub Releases are the distribution channel.
 
@@ -129,7 +128,7 @@ The spike is applied only to the emitted sample. The underlying curve does not s
 
 `examples/sample_tmd_export.txt` is a short synthetic file in the export layout, including one `OL` token and one obvious spike.
 
-**Graph.** Cairo draws T1 and T2 against elapsed time, with grid lines and a temperature axis that scales to the visible samples. The history window is 1, 5, 10, 30 or 60 minutes, or all samples kept so far. The acquisition buffer is separate from the drawing code and holds up to 24 hours at 10 Hz; older samples are dropped after that. The plot is asked to redraw at most about 10 times a second.
+**Graph.** Cairo draws T1 and T2 against elapsed time, with grid lines and a temperature axis that scales to the visible samples. Choosing 1, 5, 10, 30 or 60 minutes sets the width of the time axis. A shorter run leaves the rest of that axis empty, and a longer run keeps the newest part of that span. ALL shows every sample kept so far. The acquisition buffer is separate from the drawing code and holds up to 24 hours at 10 Hz; older samples are dropped after that. The plot is asked to redraw at most about 10 times a second.
 
 **Logging.** A session name is required. The file looks like:
 
@@ -143,7 +142,7 @@ Invalid temperatures are left blank. `valid` is 1 only when both channels are re
 
 **Statistics.** T1 and T2 each show the current value, minimum, maximum and average for the acquisition that is running. Start clears them. Delta T is T1 − T2.
 
-**Spikes.** Optional. A sample is marked when the absolute change on either channel from the last accepted temperature is larger than the threshold (default 20 °C). The raw numbers stay in the history and in the CSV. Three samples in a row that agree with each other are treated as a real step, not a spike. "Exclude spikes from graph and statistics" hides marked points and leaves them out of min / max / average. This is not applied to the TMD-56 source, so a future protocol dump is not filtered.
+**Spikes.** Optional. A sample is marked when the absolute change on either channel from the last accepted temperature is larger than the threshold (default 20 °C). The raw numbers stay in the history and in the CSV. Three samples in a row that agree with each other are treated as a real step, not a spike. "Exclude spikes" hides marked points on the graph and leaves them out of min / max / average. The filter applies to the simulator and to the meter. Logged values are not changed.
 
 ## Layout
 
@@ -152,7 +151,7 @@ src/sources/measurement_source.h   open, close, start, stop, get_measurement
 src/sources/simulator_source.c     synthetic channels
 src/sources/replay_parser.c        export / CSV parser
 src/sources/replay_source.c        replay playback
-src/sources/tmd56_source.c         unverified serial stub
+src/sources/tmd56_source.c         TMD-56 serial reading
 src/platform/user_paths.c          per-user log directory
 src/history_buffer.c               bounded acquisition history
 src/logger.c                       CSV session log
@@ -164,22 +163,15 @@ packaging/                         installers, AppImage, Windows runtime bundle
 
 ## TMD-56 hardware
 
-Not implemented, and not validated.
+Set the meter to °C. Hold Power and T1−T2 together at startup until the display shows channel 0. That is the channel the meter uses for the computer link. Choose the port in the window. When only one USB port is present, it is selected for you.
 
-`src/sources/tmd56_source.c` is the only place that knows about the serial port. The notes recorded there, from other implementations and **not checked on this instrument**, are:
+The link is 19200 baud, 8 data bits, even parity, one stop bit, and no flow control. The program sends `#0A0000NA2` and reads a 16-byte reply that starts `0x3E 0x0F`. T1 is bytes 5–6 and T2 is bytes 10–11, in tenths of a degree. A channel the meter does not report is left blank and is never stored as 0 °C. If the port will not open, add your user to the `dialout` group and log in again.
 
-- 19200 baud, 8 data bits, even parity, 1 stop bit, no flow control
-- a reported query `#0A0000NA2` followed by CR LF
-- a reported 16-byte response beginning `0x3E 0x0F`
-- temperatures reportedly near bytes 5–6 (T1) and 10–11 (T2)
-
-The program does not send that query and does not turn those bytes into temperatures. Status-byte meanings are not invented. Connect opens a port with the settings above when you type a device path such as `/dev/ttyUSB0`, counts any bytes that arrive, and still produces no readings. The window labels this mode **Experimental / unverified**.
-
-Your user account is expected to be in the `dialout` group before a later milestone can open the real port. That is not a claim that the protocol works.
+The frame matches the public HH806AU reading. It has not been checked on every TMD-56. A value outside −250.0 °C to 3276.7 °C is left blank.
 
 ## Requirements
 
 - C11, GCC, CMake
 - GTK 4
 - Cairo
-- libserialport (linked now, used only by the unverified stub)
+- libserialport (serial port for the TMD-56)

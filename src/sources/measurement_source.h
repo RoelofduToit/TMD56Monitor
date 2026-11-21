@@ -30,6 +30,8 @@ struct MeasurementSource {
     const MeasurementSourceVTable *vtable;
     bool is_open;
     bool running;
+    /* True while acquisition should keep going but the status text needs to be seen. */
+    bool attention;
     char status[384];
 };
 

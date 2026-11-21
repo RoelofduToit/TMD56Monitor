@@ -15,6 +15,35 @@ static const PlotPalette PLOT_FALLBACK = {
     .mark = {0.898, 0.718, 0.184},
 };
 
+void live_plot_visible_time(double first_s, double last_s, double window_seconds,
+                            double *t0, double *t1)
+{
+    double start = first_s;
+    double end = last_s;
+
+    if (!isfinite(start)) {
+        start = 0.0;
+    }
+    if (!isfinite(end) || end < start) {
+        end = start;
+    }
+    if (window_seconds > 0.0) {
+        if ((end - start) + 1e-9 >= window_seconds) {
+            start = end - window_seconds;
+        } else {
+            end = start + window_seconds;
+        }
+    } else if (end - start < 1.0) {
+        end = start + 1.0;
+    }
+    if (t0 != NULL) {
+        *t0 = start;
+    }
+    if (t1 != NULL) {
+        *t1 = end;
+    }
+}
+
 static const PlotPalette *palette_of(const LivePlot *plot)
 {
     if (plot != NULL && plot->have_palette) {
@@ -112,9 +141,14 @@ static void draw_text(cairo_t *cr, double x, double y, const char *text, int anc
     cairo_show_text(cr, text);
 }
 
+static double channel_value(const TemperatureMeasurement *s, int channel)
+{
+    return channel == 0 ? s->t1 : channel == 1 ? s->t2 : s->t1 - s->t2;
+}
+
 static bool channel_drawn(const TemperatureMeasurement *sample, int channel, bool hide_suspicious)
 {
-    double value = (channel == 0) ? sample->t1 : sample->t2;
+    double value = channel_value(sample, channel);
     if (!isfinite(value)) {
         return false;
     }
@@ -185,7 +219,7 @@ static void draw_channel(cairo_t *cr, const HistoryBuffer *history, size_t begin
                 if (sample == NULL || !channel_drawn(sample, channel, hide_suspicious)) {
                     continue;
                 }
-                value = (channel == 0) ? sample->t1 : sample->t2;
+                value = channel_value(sample, channel);
                 if (min_index == (size_t)-1 || value < min_value) {
                     min_value = value;
                     min_index = index;
@@ -212,7 +246,7 @@ static void draw_channel(cairo_t *cr, const HistoryBuffer *history, size_t begin
                 continue;
             }
             x = plot_x + (sample->elapsed_seconds - t0) / (t1 - t0) * plot_w;
-            y = plot_y + (y1 - ((channel == 0) ? sample->t1 : sample->t2)) / (y1 - y0) * plot_h;
+            y = plot_y + (y1 - (channel_value(sample, channel))) / (y1 - y0) * plot_h;
             add_point(cr, &pen_down, x, y);
         }
         cursor = bucket_end;
@@ -221,7 +255,7 @@ static void draw_channel(cairo_t *cr, const HistoryBuffer *history, size_t begin
     cairo_restore(cr);
 }
 
-static void draw_spike_markers(cairo_t *cr, const HistoryBuffer *history, size_t begin,
+static void draw_spike_markers(cairo_t *cr, const LivePlot *plot, const HistoryBuffer *history, size_t begin,
                                size_t end, bool hide_suspicious, const double mark[3],
                                double t0, double t1, double y0, double y1,
                                double plot_x, double plot_y, double plot_w, double plot_h)
@@ -247,7 +281,8 @@ static void draw_spike_markers(cairo_t *cr, const HistoryBuffer *history, size_t
             continue;
         }
         for (channel = 0; channel < 2; channel++) {
-            double value = (channel == 0) ? sample->t1 : sample->t2;
+            if ((channel == 0 && plot->hide_t1) || (channel == 1 && plot->hide_t2)) continue;
+            double value = channel_value(sample, channel);
             double x;
             double y;
             if (!isfinite(value)) {
@@ -265,10 +300,10 @@ static void draw_spike_markers(cairo_t *cr, const HistoryBuffer *history, size_t
 void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
 {
     const PlotPalette *palette = palette_of(plot);
-    const double left = 68.0;
+    const double left = 76.0;
     const double right = 16.0;
     const double top = 14.0;
-    const double bottom = 42.0;
+    const double bottom = 48.0;
     const HistoryBuffer *history;
     size_t count;
     size_t begin = 0;
@@ -307,21 +342,7 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
     if (count > 0u) {
         double last = history_buffer_at(history, count - 1u)->elapsed_seconds;
         double first = history_buffer_at(history, 0)->elapsed_seconds;
-        if (plot->window_seconds > 0.0) {
-            if (last < plot->window_seconds) {
-                t0 = (first < 0.0) ? first : 0.0;
-                t1 = t0 + plot->window_seconds;
-            } else {
-                t1 = last;
-                t0 = last - plot->window_seconds;
-            }
-        } else {
-            t0 = first;
-            t1 = last;
-            if (t1 - t0 < 1.0) {
-                t1 = t0 + 1.0;
-            }
-        }
+        live_plot_visible_time(first, last, plot->window_seconds, &t0, &t1);
         begin = history_buffer_lower_bound(history, t0);
         if (begin > 0u) {
             begin--;
@@ -333,8 +354,17 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
                 end++;
             }
         }
+    } else {
+        live_plot_visible_time(0.0, 0.0, plot->window_seconds, &t0, &t1);
     }
 
+    if (history != NULL && plot->manual_time && plot->time_end > plot->time_start) {
+        t0 = plot->time_start; t1 = plot->time_end;
+        begin = history_buffer_lower_bound(history, t0);
+        if (begin > 0) begin--;
+        end = history_buffer_lower_bound(history, t1);
+        if (end < count) end++;
+    }
     if (history != NULL) {
         size_t index;
         for (index = begin; index < end; index++) {
@@ -345,14 +375,13 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
             if (sample->elapsed_seconds < t0 || sample->elapsed_seconds > t1 + 1e-9) {
                 continue;
             }
-            if (channel_drawn(sample, 0, plot->hide_suspicious)) {
-                y0 = have_y ? fmin(y0, sample->t1) : sample->t1;
-                y1 = have_y ? fmax(y1, sample->t1) : sample->t1;
-                have_y = true;
-            }
-            if (channel_drawn(sample, 1, plot->hide_suspicious)) {
-                y0 = have_y ? fmin(y0, sample->t2) : sample->t2;
-                y1 = have_y ? fmax(y1, sample->t2) : sample->t2;
+            for (int channel = 0; channel < 3; channel++) {
+                if ((channel == 0 && plot->hide_t1) || (channel == 1 && plot->hide_t2) ||
+                    (channel == 2 && !plot->show_delta)) continue;
+                if (!channel_drawn(sample, channel, plot->hide_suspicious)) continue;
+                double v = channel_value(sample, channel);
+                y0 = have_y ? fmin(y0, v) : v;
+                y1 = have_y ? fmax(y1, v) : v;
                 have_y = true;
             }
         }
@@ -407,8 +436,13 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
         plot->have_span = false;
     }
 
+    if (plot->manual_y && plot->y_max > plot->y_min) {
+        y0 = plot->y_min; y1 = plot->y_max;
+    }
+    plot->drawn_t0 = t0; plot->drawn_t1 = t1;
+    plot->drawn_y0 = y0; plot->drawn_y1 = y1;
     cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 11.0);
+    cairo_set_font_size(cr, 13.0);
 
     minutes = (t1 - t0) >= 120.0;
     x_span = minutes ? (t1 - t0) / 60.0 : (t1 - t0);
@@ -493,7 +527,6 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
     cairo_stroke(cr);
 
     paint(cr, palette->axis);
-    cairo_set_font_size(cr, 11.0);
     {
         int guard = 0;
         for (tick = ceil((minutes ? t0 / 60.0 : t0) / x_step) * x_step;
@@ -527,7 +560,6 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
         }
     }
 
-    cairo_set_font_size(cr, 11.0);
     {
         const char *axis_name = minutes ? "Elapsed time (min)" : "Elapsed time (s)";
         double axis_x = place_label(cr, plot_x + plot_w / 2.0, axis_name, 1, 4.0,
@@ -536,46 +568,47 @@ void live_plot_draw(LivePlot *plot, cairo_t *cr, int width, int height)
     }
 
     cairo_save(cr);
-    cairo_set_font_size(cr, 11.0);
-    cairo_translate(cr, 16.0, plot_y + plot_h / 2.0);
+    cairo_translate(cr, 18.0, plot_y + plot_h / 2.0);
     cairo_rotate(cr, -PLOT_PI / 2.0);
     draw_text(cr, 0.0, 0.0, "Temperature (°C)", 1);
     cairo_restore(cr);
 
     if (history != NULL && end > begin) {
         paint(cr, palette->t1);
-        draw_channel(cr, history, begin, end, 0, plot->hide_suspicious,
+        if (!plot->hide_t1) draw_channel(cr, history, begin, end, 0, plot->hide_suspicious,
                      t0, t1, y0, y1, plot_x, plot_y, plot_w, plot_h);
         paint(cr, palette->t2);
-        draw_channel(cr, history, begin, end, 1, plot->hide_suspicious,
+        if (!plot->hide_t2) draw_channel(cr, history, begin, end, 1, plot->hide_suspicious,
                      t0, t1, y0, y1, plot_x, plot_y, plot_w, plot_h);
-        draw_spike_markers(cr, history, begin, end, plot->hide_suspicious, palette->mark,
+        if (plot->show_delta) {
+            paint(cr, palette->mark);
+            draw_channel(cr, history, begin, end, 2, plot->hide_suspicious,
+                         t0, t1, y0, y1, plot_x, plot_y, plot_w, plot_h);
+        }
+        draw_spike_markers(cr, plot, history, begin, end, plot->hide_suspicious, palette->mark,
                            t0, t1, y0, y1, plot_x, plot_y, plot_w, plot_h);
     }
 
-    paint(cr, palette->bg);
-    cairo_rectangle(cr, plot_x + plot_w - 92.0, plot_y + 8.0, 82.0, 40.0);
-    cairo_fill_preserve(cr);
-    paint(cr, palette->grid);
-    cairo_set_line_width(cr, 1.0);
-    cairo_stroke(cr);
-    paint(cr, palette->t1);
-    cairo_set_line_width(cr, 2.0);
-    cairo_move_to(cr, plot_x + plot_w - 82.0, plot_y + 20.0);
-    cairo_line_to(cr, plot_x + plot_w - 62.0, plot_y + 20.0);
-    cairo_stroke(cr);
-    paint(cr, palette->t2);
-    cairo_move_to(cr, plot_x + plot_w - 82.0, plot_y + 36.0);
-    cairo_line_to(cr, plot_x + plot_w - 62.0, plot_y + 36.0);
-    cairo_stroke(cr);
-    paint(cr, palette->axis);
-    cairo_set_font_size(cr, 11.0);
-    draw_text(cr, plot_x + plot_w - 54.0, plot_y + 24.0, "T1", 0);
-    draw_text(cr, plot_x + plot_w - 54.0, plot_y + 40.0, "T2", 0);
+    /* Legend follows channel visibility, including the derived trace. */
+    int legend_row = 0;
+    for (int channel = 0; channel < 3; channel++) {
+        if ((channel == 0 && plot->hide_t1) || (channel == 1 && plot->hide_t2) ||
+            (channel == 2 && !plot->show_delta)) continue;
+        double row_y = plot_y + 20.0 + legend_row++ * 20.0;
+        paint(cr, palette->bg);
+        cairo_rectangle(cr, plot_x + plot_w - 94, row_y - 10, 88, 20);
+        cairo_fill(cr);
+        paint(cr, channel == 0 ? palette->t1 : channel == 1 ? palette->t2 : palette->mark);
+        cairo_set_line_width(cr, 2);
+        cairo_move_to(cr, plot_x + plot_w - 84, row_y);
+        cairo_line_to(cr, plot_x + plot_w - 64, row_y); cairo_stroke(cr);
+        paint(cr, palette->axis);
+        draw_text(cr, plot_x + plot_w - 56, row_y + 4,
+                  channel == 0 ? "T1" : channel == 1 ? "T2" : "ΔT", 0);
+    }
 
     if (plot->overlay != NULL && plot->overlay[0] != '\0' && count == 0u) {
         paint(cr, palette->axis);
-        cairo_set_font_size(cr, 13.0);
         draw_text(cr, plot_x + plot_w / 2.0, plot_y + plot_h / 2.0, plot->overlay, 1);
     }
 }

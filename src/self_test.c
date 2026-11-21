@@ -3,6 +3,7 @@
 #include "history_buffer.h"
 #include "platform/user_paths.h"
 #include "sources/simulator_source.h"
+#include "sources/tmd56_source.h"
 #include "version.h"
 
 #include <gio/gio.h>
@@ -120,6 +121,33 @@ static int check_core(void)
     return ok;
 }
 
+static int check_meter_frame(void)
+{
+    unsigned char frame[16];
+    double t1 = 0.0;
+    double t2 = 0.0;
+    int ok;
+
+    memset(frame, 0, sizeof frame);
+    frame[0] = 0x3E;
+    frame[1] = 0x0F;
+    frame[5] = 0x00;
+    frame[6] = 250; /* 25.0 °C */
+    frame[10] = 0x03;
+    frame[11] = 0xE8; /* 100.0 °C */
+    ok = tmd56_decode_frame(frame, sizeof frame, &t1, &t2) == 0 &&
+         fabs(t1 - 25.0) < 1e-9 && fabs(t2 - 100.0) < 1e-9;
+    frame[0] = 0x00;
+    if (tmd56_decode_frame(frame, sizeof frame, &t1, &t2) != -1 || isfinite(t1) || isfinite(t2)) {
+        ok = 0;
+    }
+    printf("Meter frame: %s\n", ok ? "PASS" : "FAIL");
+    if (!ok) {
+        fprintf(stderr, "tmd56: meter frame decode failed\n");
+    }
+    return ok;
+}
+
 int tmd_self_test(void)
 {
     int ok = 1;
@@ -142,6 +170,9 @@ int tmd_self_test(void)
         ok = 0;
     }
     if (!check_core()) {
+        ok = 0;
+    }
+    if (!check_meter_frame()) {
         ok = 0;
     }
     printf("\nSELF TEST: %s\n", ok ? "PASS" : "FAIL");

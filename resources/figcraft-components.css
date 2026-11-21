@@ -1,0 +1,64 @@
+/* Instrument workbench, generated from the verified FigCraft specification. */
+window.amprobe-shell .instrument-header { padding: 4px 12px; }
+window.amprobe-shell .control-area { padding: 8px 16px; }
+window.amprobe-shell label { font-size: 12px; }
+window.amprobe-shell .product-mark { font-family: "DejaVu Sans Mono", monospace; font-size: 23px; }
+window.amprobe-shell .product-line,
+window.amprobe-shell .instrument-section-title,
+window.amprobe-shell .field-label,
+window.amprobe-shell .fact-label { font-family: "DejaVu Sans Mono", monospace; font-size: 11px; }
+window.amprobe-shell .measurement-display { background: @tmd_lcd; border: 1px solid @tmd_lcd_rule; border-radius: 2px; padding: 8px 10px; }
+window.amprobe-shell .measurement-display .path-label { color: @tmd_lcd_ink; font-size: 10px; font-family: "DejaVu Sans Mono", monospace; padding-left: 8px; }
+window.amprobe-shell .measurement-channel { background: transparent; border: none; border-radius: 0; padding: 2px 18px; }
+window.amprobe-shell .measurement-channel.channel-t2,
+window.amprobe-shell .measurement-channel.channel-delta { border-left: 1px solid @tmd_lcd_rule; }
+window.amprobe-shell .measurement-channel.channel-t1 .measurement-number,
+window.amprobe-shell .measurement-channel.channel-t2 .measurement-number,
+window.amprobe-shell .measurement-channel.channel-delta .measurement-number { color: @tmd_lcd_ink; font-size: 48px; font-family: "DejaVu Sans Mono", monospace; }
+window.amprobe-shell .measurement-unit,
+window.amprobe-shell .measurement-name,
+window.amprobe-shell .measurement-display .stat-value { color: @tmd_lcd_ink; }
+window.amprobe-shell .measurement-unit { font-size: 13px; }
+window.amprobe-shell .measurement-name { font-size: 11px; }
+window.amprobe-shell .measurement-display .stat-value { font-size: 10px; }
+window.amprobe-shell .spike-mark { color: @tmd_t1; }
+window.amprobe-shell .channel-statistics { padding-top: 0; }
+window.amprobe-shell .session-panel { border: none; border-top: 1px solid @tmd_border; padding: 12px 16px; }
+window.amprobe-shell .dock-recording,
+window.amprobe-shell .dock-utilities { border-left: 1px solid @tmd_border; padding-left: 20px; }
+window.amprobe-shell .fact-value { font-family: "Inter", sans-serif; font-size: 13px; }
+window.amprobe-shell .fact-strip .fact-value { font-family: "DejaVu Sans Mono", monospace; font-size: 23px; }
+window.amprobe-shell .channel-t1 .channel-indicator { background: @tmd_t1; }
+window.amprobe-shell .channel-t2 .channel-indicator { background: @tmd_cyan; }
+window.amprobe-shell .channel-delta .channel-indicator { background: @tmd_delta; }
+window.amprobe-shell .plot-container { border-radius: 1px; border-color: @tmd_grid; padding: 8px; }
+window.amprobe-shell .plot-toolbar { padding-bottom: 6px; }
+window.amprobe-shell .plot-container label,
+window.amprobe-shell .plot-container .path-label,
+window.amprobe-shell .plot-container .instrument-section-title,
+window.amprobe-shell .plot-container .field-label,
+window.amprobe-shell .plot-container button.view-option label { color: @tmd_axis; }
+window.amprobe-shell .plot-container .trace-t1 label { color: @tmd_t1; }
+window.amprobe-shell .plot-container .trace-t2 label { color: @tmd_cyan; }
+window.amprobe-shell .plot-container .trace-delta label { color: @tmd_delta; }
+window.amprobe-shell .plot-container button.secondary-control label { color: @tmd_text; }
+window.amprobe-shell button.primary-control,
+window.amprobe-shell button.secondary-control,
+window.amprobe-shell menubutton > button,
+window.amprobe-shell dropdown,
+window.amprobe-shell dropdown > button,
+window.amprobe-shell entry,
+window.amprobe-shell spinbutton { border-radius: 2px; min-height: 32px; }
+window.amprobe-shell button.primary-control:hover { background: #DE4E3A; }
+window.amprobe-shell button.primary-control:active { background: @tmd_red_dark; }
+window.amprobe-shell button.secondary-control:hover { background: @tmd_control; border-color: #737363; }
+window.amprobe-shell button.view-option:checked { background: @tmd_grid; border-bottom-color: @tmd_red; }
+window.amprobe-shell checkbutton check:checked,
+window.amprobe-shell checkbutton radio:checked { background: @tmd_cyan; border-color: @tmd_cyan; color: @tmd_text; }
+window.amprobe-shell .plot-container checkbutton check { border-color: @tmd_axis; }
+window.amprobe-shell button.primary-control:disabled,
+window.amprobe-shell button.secondary-control:disabled { background: #1D1D1A; border-color: #34342E; }
+window.amprobe-shell button.primary-control:disabled label,
+window.amprobe-shell button.secondary-control:disabled label { color: #858577; }
+window.amprobe-shell .status-recording { color: #E99B89; }
+window.amprobe-shell .status-warning { color: @tmd_yellow; }

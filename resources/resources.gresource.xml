@@ -2,6 +2,9 @@
 <gresources>
   <gresource prefix="/com/tmd56/Monitor">
     <file>style.css</file>
+    <file>design-tokens.css</file>
+    <file>figcraft-components.css</file>
+    <file>workstation.css</file>
     <file>icons/tmd56-monitor.svg</file>
     <file>icons/tmd56-monitor-128.png</file>
   </gresource>

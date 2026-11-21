@@ -55,7 +55,7 @@ static void recompute_stats(App *app)
 {
     size_t i;
     size_t count;
-    bool ignore = app->spike_filter_enabled && app->kind != APP_SOURCE_TMD56;
+    bool ignore = app->spike_filter_enabled;
 
     stats_reset(&app->stats);
     count = history_buffer_count(&app->history);
@@ -116,9 +116,7 @@ static void halt(App *app, const char *text, AppStatusLevel level)
 static void idle_status_for_source(App *app)
 {
     if (app->kind == APP_SOURCE_TMD56) {
-        set_status(app,
-                   "Experimental / unverified — temperature decoding is not implemented.",
-                   APP_LEVEL_WARNING);
+        set_status(app, "Idle", APP_LEVEL_IDLE);
         return;
     }
     if (app->kind == APP_SOURCE_REPLAY) {
@@ -230,6 +228,7 @@ void app_set_sample_interval(App *app, double seconds)
         return;
     }
     simulator_source_set_period(app->simulator, seconds);
+    tmd56_source_set_period(app->tmd56, seconds);
 }
 
 void app_set_replay_speed(App *app, double speed)
@@ -297,9 +296,7 @@ int app_start(App *app, char *err, size_t err_len)
         rc = measurement_source_start(app->active);
     } else {
         if (app->serial_port[0] == '\0') {
-            set_status(app,
-                       "Enter a serial port. Experimental / unverified — no readings will be invented.",
-                       APP_LEVEL_ERROR);
+            set_status(app, "Choose a serial port.", APP_LEVEL_ERROR);
             if (err != NULL && err_len > 0) {
                 snprintf(err, err_len, "%s", app->status);
             }
@@ -332,7 +329,7 @@ int app_start(App *app, char *err, size_t err_len)
     app->log_fault = false;
     app->acquiring = true;
     set_status(app, measurement_source_status(app->active),
-               app->kind == APP_SOURCE_TMD56 ? APP_LEVEL_WARNING : APP_LEVEL_RUNNING);
+               app->active->attention ? APP_LEVEL_WARNING : APP_LEVEL_RUNNING);
     if (err != NULL && err_len > 0) {
         err[0] = '\0';
     }
@@ -348,13 +345,12 @@ void app_stop(App *app)
         close_log(app);
         return;
     }
-    halt(app, "Stopped", app->kind == APP_SOURCE_TMD56 ? APP_LEVEL_WARNING : APP_LEVEL_IDLE);
+    halt(app, "Stopped", APP_LEVEL_IDLE);
 }
 
 int app_poll(App *app)
 {
     int produced = 0;
-    bool track_spikes;
     bool ignore_spikes;
     bool log_problem = false;
 
@@ -362,11 +358,11 @@ int app_poll(App *app)
         return 0;
     }
 
-    track_spikes = app->kind != APP_SOURCE_TMD56;
-    ignore_spikes = app->spike_filter_enabled && track_spikes;
+    ignore_spikes = app->spike_filter_enabled;
 
     while (produced < 500) {
         TemperatureMeasurement sample;
+        int unmark;
         int rc = measurement_source_get(app->active, &sample);
         if (rc == 0) {
             break;
@@ -376,26 +372,16 @@ int app_poll(App *app)
             return produced;
         }
 
-        if (track_spikes) {
-            int unmark = spike_tracker_observe(&app->spikes, &sample, app->spike_threshold);
-            if (history_buffer_push(&app->history, &sample) != 0) {
-                halt(app, "Out of memory while storing samples", APP_LEVEL_ERROR);
-                return produced;
-            }
-            if (unmark > 0) {
-                clear_tail_marks(app, unmark);
-                recompute_stats(app);
-            } else {
-                stats_accumulate(&app->stats, &sample, ignore_spikes);
-                remember_latest(app, &sample);
-            }
+        unmark = spike_tracker_observe(&app->spikes, &sample, app->spike_threshold);
+        if (history_buffer_push(&app->history, &sample) != 0) {
+            halt(app, "Out of memory while storing samples", APP_LEVEL_ERROR);
+            return produced;
+        }
+        if (unmark > 0) {
+            clear_tail_marks(app, unmark);
+            recompute_stats(app);
         } else {
-            sample.suspicious = false;
-            if (history_buffer_push(&app->history, &sample) != 0) {
-                halt(app, "Out of memory while storing samples", APP_LEVEL_ERROR);
-                return produced;
-            }
-            stats_accumulate(&app->stats, &sample, false);
+            stats_accumulate(&app->stats, &sample, ignore_spikes);
             remember_latest(app, &sample);
         }
 
@@ -429,7 +415,7 @@ int app_poll(App *app)
         return produced;
     }
     set_status(app, measurement_source_status(app->active),
-               app->kind == APP_SOURCE_TMD56 ? APP_LEVEL_WARNING : APP_LEVEL_RUNNING);
+               app->active->attention ? APP_LEVEL_WARNING : APP_LEVEL_RUNNING);
     return produced;
 }
 
@@ -522,7 +508,7 @@ int app_start_logging(App *app, const char *session_name, char *err, size_t err_
     }
     app->log_fault = false;
     set_status(app, measurement_source_status(app->active),
-               app->kind == APP_SOURCE_TMD56 ? APP_LEVEL_WARNING : APP_LEVEL_RUNNING);
+               app->active->attention ? APP_LEVEL_WARNING : APP_LEVEL_RUNNING);
     return 0;
 }
 
@@ -552,9 +538,6 @@ void app_set_spike_threshold(App *app, double threshold_c)
         threshold_c = TMD_DEFAULT_SPIKE_THRESHOLD_C;
     }
     app->spike_threshold = threshold_c;
-    if (app->kind == APP_SOURCE_TMD56) {
-        return;
-    }
     history_buffer_remark_spikes(&app->history, threshold_c, &app->spikes);
     recompute_stats(app);
 }
